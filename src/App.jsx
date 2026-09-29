@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, Target, FolderKanban, TrendingUp, FileText, Settings, User, Plus, 
-  ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, BarChart3, Calendar, Users, Activity, ShieldCheck
+  ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, BarChart3, Calendar, Users, Activity
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import biomontLogo from './assets/biomont-logo.png';
@@ -138,7 +138,6 @@ const ProgressBar = ({ progress, status }) => {
 export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [navHistory, setNavHistory] = useState([{ id: 'dashboard', name: 'Monitor' }]);
-  const [selectedRole, setSelectedRole] = useState(null);
   
   const [objectives, setObjectives] = useState(INITIAL_OBJECTIVES);
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
@@ -706,24 +705,6 @@ export default function App() {
         </Card>
       </div>
     )
-  }
-
-  if (!selectedRole) {
-    const roles = [
-      { name: 'Dirección', description: 'Consulta el avance estratégico y toma decisiones.', icon: ShieldCheck, color: 'bg-red-50 text-[#D71920] border-red-100' },
-      { name: 'Líder de objetivo', description: 'Gestiona objetivos, indicadores y avances de su equipo.', icon: Target, color: 'bg-blue-50 text-blue-600 border-blue-100' },
-      { name: 'Colaborador', description: 'Revisa las iniciativas y los resultados asignados.', icon: Users, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }
-    ];
-    return (
-      <main className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-5 relative overflow-hidden">
-        <div className="absolute -top-32 -right-28 w-96 h-96 rounded-full bg-red-100/60 blur-3xl" />
-        <div className="w-full max-w-5xl relative">
-          <div className="text-center mb-9"><img src={biomontLogo} alt="Biomont" className="h-20 w-auto object-contain mx-auto mb-6" /><p className="text-sm font-bold text-[#D71920] uppercase tracking-[0.2em]">Plataforma estratégica</p><h1 className="text-4xl font-bold text-slate-900 mt-2">Bienvenido a Bionexora</h1><p className="text-slate-500 mt-3 max-w-xl mx-auto">Antes de ingresar, selecciona el rol con el que trabajarás en la plataforma.</p></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">{roles.map(role => { const Icon = role.icon; return <button key={role.name} onClick={() => setSelectedRole(role)} className="bg-white border border-slate-200 rounded-2xl p-6 text-left shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-[#D71920]/40 transition-all group"><div className={`w-12 h-12 border rounded-xl flex items-center justify-center ${role.color}`}><Icon className="w-6 h-6" /></div><h2 className="text-lg font-bold text-slate-900 mt-5">{role.name}</h2><p className="text-sm text-slate-500 leading-6 mt-2">{role.description}</p><div className="flex items-center gap-2 text-sm font-semibold text-[#D71920] mt-6">Ingresar <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></div></button>})}</div>
-          <p className="text-center text-xs text-slate-400 mt-8">Biomont · Bionexora</p>
-        </div>
-      </main>
-    );
   }
 
   return (
