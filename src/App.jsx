@@ -153,6 +153,7 @@ export default function App() {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState(null);
+  const [selectedRole, setSelectedRole] = useState(null);
 
   const navigateTo = (view, name, params = {}) => {
     setCurrentView(view);
@@ -749,6 +750,15 @@ export default function App() {
 
   const SettingsView = () => <div className="max-w-3xl fade-in space-y-6"><div><h1 className="text-2xl font-bold text-slate-900">Configuración</h1><p className="text-slate-500 mt-1">Administra las preferencias generales de Bionexora.</p></div><Card className="p-6"><h2 className="font-semibold text-slate-900">Preferencias de visualización</h2><div className="mt-5 space-y-4"><label className="flex items-center justify-between gap-4 py-3 border-b border-slate-100"><span><span className="block text-sm font-medium text-slate-800">Alertas estratégicas</span><span className="block text-xs text-slate-500 mt-1">Muestra objetivos retrasados en el Monitor.</span></span><input type="checkbox" defaultChecked className="w-4 h-4 accent-[#D71920]" /></label><label className="flex items-center justify-between gap-4 py-3"><span><span className="block text-sm font-medium text-slate-800">Vista compacta</span><span className="block text-xs text-slate-500 mt-1">Reduce el espacio entre elementos del dashboard.</span></span><input type="checkbox" className="w-4 h-4 accent-[#D71920]" /></label></div></Card><Card className="p-6"><h2 className="font-semibold text-slate-900">Información de la plataforma</h2><p className="text-sm text-slate-500 mt-2">Bionexora · Plataforma estratégica de Biomont</p></Card></div>;
 
+  if (!selectedRole) {
+    const roles = [
+      { name: 'Gerente general', description: 'Consulta el avance estratégico global y las alertas de la organización.', icon: LayoutDashboard, color: 'bg-red-50 text-[#D71920] border-red-100' },
+      { name: 'Gerente responsable', description: 'Gestiona objetivos, acciones estratégicas, indicadores y resultados.', icon: Target, color: 'bg-blue-50 text-blue-600 border-blue-100' },
+      { name: 'GCG', description: 'Revisa, aprueba o devuelve indicadores para su reformulación.', icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }
+    ];
+    return <main className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-5 relative overflow-hidden"><div className="absolute -top-32 -right-28 w-96 h-96 rounded-full bg-red-100/60 blur-3xl" /><div className="w-full max-w-5xl relative"><div className="text-center mb-9"><img src={biomontLogo} alt="Biomont" className="h-20 w-auto object-contain mx-auto mb-6" /><p className="text-sm font-bold text-[#D71920] uppercase tracking-[0.2em]">Plataforma estratégica</p><h1 className="text-4xl font-bold text-slate-900 mt-2">Bienvenido a Bionexora</h1><p className="text-slate-500 mt-3 max-w-xl mx-auto">Selecciona el rol con el que ingresarás a la plataforma.</p></div><div className="grid grid-cols-1 md:grid-cols-3 gap-5">{roles.map(role => { const Icon = role.icon; return <button key={role.name} onClick={() => setSelectedRole(role)} className="bg-white border border-slate-200 rounded-2xl p-6 text-left shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-[#D71920]/40 transition-all group"><div className={`w-12 h-12 border rounded-xl flex items-center justify-center ${role.color}`}><Icon className="w-6 h-6" /></div><h2 className="text-lg font-bold text-slate-900 mt-5">{role.name}</h2><p className="text-sm text-slate-500 leading-6 mt-2">{role.description}</p><div className="flex items-center gap-2 text-sm font-semibold text-[#D71920] mt-6">Ingresar <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></div></button>})}</div><p className="text-center text-xs text-slate-400 mt-8">Biomont · Bionexora</p></div></main>;
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-slate-900">
       <aside className="w-64 bg-[#0F172A] text-slate-300 flex-col hidden md:flex fixed h-full z-20">
@@ -768,7 +778,7 @@ export default function App() {
           </nav>
         </div>
         <div className="p-4 border-t border-slate-800">
-          <div className="flex items-center gap-3 px-3 py-2"><div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-white">CM</div><div className="flex-1 overflow-hidden"><p className="text-sm font-medium text-white truncate">Carlos Mendoza</p><p className="text-xs text-slate-500 truncate">Gerente General</p></div><button onClick={() => navigateTo('settings', 'Configuración')} aria-label="Abrir configuración" className="p-1 rounded hover:bg-slate-700"><Settings className="w-4 h-4 text-slate-400 hover:text-white" /></button></div>
+          <div className="flex items-center gap-3 px-3 py-2"><div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-white">CM</div><div className="flex-1 overflow-hidden"><p className="text-sm font-medium text-white truncate">Carlos Mendoza</p><p className="text-xs text-slate-500 truncate">{selectedRole.name}</p></div><button onClick={() => navigateTo('settings', 'Configuración')} aria-label="Abrir configuración" className="p-1 rounded hover:bg-slate-700"><Settings className="w-4 h-4 text-slate-400 hover:text-white" /></button></div>
         </div>
       </aside>
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
