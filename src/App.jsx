@@ -13,9 +13,9 @@ const MOCK_USERS = [
 ];
 
 const INITIAL_OBJECTIVES = [
-  { id: 1, name: 'Incrementar la eficiencia operativa', description: 'Mejorar el desempeño operacional mediante reducción de tiempos improductivos y optimización de recursos.', category: 'Procesos Internos', ownerId: 2, progress: 78, status: 'En progreso', targetDate: '2026-12-31' },
-  { id: 2, name: 'Mejorar la satisfacción del cliente', description: 'Aumentar el NPS y reducir el tiempo de respuesta a incidencias en un 30%.', category: 'Clientes', ownerId: 1, progress: 92, status: 'Cumplido', targetDate: '2026-10-15' },
-  { id: 3, name: 'Fortalecer la transformación digital', description: 'Implementar el nuevo ERP y migrar el 80% de los procesos manuales a la nube.', category: 'Innovación', ownerId: 2, progress: 45, status: 'En riesgo', targetDate: '2027-03-30' }
+  { id: 1, name: 'Incrementar la eficiencia operativa', description: 'Mejorar el desempeño operacional mediante reducción de tiempos improductivos y optimización de recursos.', category: 'Procesos Internos', ownerId: 2, progress: 78, status: 'En progreso', createdDate: '2026-01-01', targetDate: '2026-12-31' },
+  { id: 2, name: 'Mejorar la satisfacción del cliente', description: 'Aumentar el NPS y reducir el tiempo de respuesta a incidencias en un 30%.', category: 'Clientes', ownerId: 1, progress: 92, status: 'Cumplido', createdDate: '2026-01-01', targetDate: '2026-10-15' },
+  { id: 3, name: 'Fortalecer la transformación digital', description: 'Implementar el nuevo ERP y migrar el 80% de los procesos manuales a la nube.', category: 'Innovación', ownerId: 2, progress: 45, status: 'En riesgo', createdDate: '2026-01-01', targetDate: '2027-03-30' }
 ];
 
 const INITIAL_PROJECTS = [
@@ -30,16 +30,16 @@ const INITIAL_TASKS = [
 ];
 
 const INITIAL_INDICATORS = [
-  { id: 1, objectiveId: 1, name: 'Cumplimiento del plan de producción', resource: 'Reportes diarios del sistema MES', formula: '(Unidades producidas / Unidades planificadas) × 100', target: 95, unit: '%', comparator: '>=', frequency: 'Mensual', ownerId: 3, status: 'En riesgo', approvalStatus: 'Aprobado' },
-  { id: 2, objectiveId: 1, name: 'Reducción de merma', resource: 'Reporte de calidad', formula: '(Kg merma / Kg total procesado) × 100', target: 5, unit: '%', comparator: '<=', frequency: 'Semanal', ownerId: 3, status: 'Cumplido', approvalStatus: 'Aprobado' }
+  { id: 1, objectiveId: 1, name: 'Cumplimiento del plan de producción', resource: 'Reportes diarios del sistema MES', formula: '(Unidades producidas / Unidades planificadas) × 100', target: 95, unit: '%', comparator: '>=', frequency: 'Mensual', ownerId: 3, status: 'Fuera de meta', approvalStatus: 'Aprobado' },
+  { id: 2, objectiveId: 1, name: 'Reducción de merma', resource: 'Reporte de calidad', formula: '(Kg merma / Kg total procesado) × 100', target: 5, unit: '%', comparator: '<=', frequency: 'Mensual', ownerId: 3, status: 'En meta', approvalStatus: 'Aprobado' }
 ];
 
 const INITIAL_REPORTS = [
-  { id: 1, indicatorId: 1, period: 'Julio 2026', result: 94, status: 'En riesgo', date: '2026-07-31', obs: 'Retraso de materia prima.' },
-  { id: 2, indicatorId: 1, period: 'Agosto 2026', result: 97, status: 'Cumplido', date: '2026-08-31', obs: 'Operación normal.' },
-  { id: 3, indicatorId: 1, period: 'Septiembre 2026', result: 92, status: 'En riesgo', date: '2026-09-30', obs: 'Paradas no programadas en semana 2.' },
-  { id: 4, indicatorId: 2, period: 'Agosto 2026', result: 4.2, status: 'Cumplido', date: '2026-08-31', obs: '' },
-  { id: 5, indicatorId: 2, period: 'Septiembre 2026', result: 4.8, status: 'Cumplido', date: '2026-09-30', obs: '' },
+  { id: 1, indicatorId: 1, period: 'Julio,2026', result: 94, status: 'Fuera de meta', date: '2026-07-31', obs: 'Retraso de materia prima.' },
+  { id: 2, indicatorId: 1, period: 'Agosto,2026', result: 97, status: 'En meta', date: '2026-08-31', obs: 'Operación normal.' },
+  { id: 3, indicatorId: 1, period: 'Septiembre,2026', result: 92, status: 'Fuera de meta', date: '2026-09-30', obs: 'Paradas no programadas en semana 2.' },
+  { id: 4, indicatorId: 2, period: 'Agosto,2026', result: 4.2, status: 'En meta', date: '2026-08-31', obs: '' },
+  { id: 5, indicatorId: 2, period: 'Septiembre,2026', result: 4.8, status: 'En meta', date: '2026-09-30', obs: '' },
 ];
 
 const calculateIndicatorStatus = (result, target, comparator) => {
@@ -54,14 +54,16 @@ const calculateIndicatorStatus = (result, target, comparator) => {
     case '<': isSuccess = res < tgt; break;
     default: isSuccess = false;
   }
-  return isSuccess ? 'Cumplido' : 'En riesgo'; 
+  return isSuccess ? 'En meta' : 'Fuera de meta'; 
 };
 
 const getStatusColor = (status) => {
   switch(status?.toLowerCase()) {
     case 'cumplido':
     case 'completado': return 'bg-green-100 text-green-700 border-green-200';
+    case 'en meta': return 'bg-green-100 text-green-700 border-green-200';
     case 'en riesgo': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    case 'fuera de meta': return 'bg-red-100 text-red-700 border-red-200';
     case 'no cumplido': 
     case 'retrasado': return 'bg-red-100 text-red-700 border-red-200';
     case 'en progreso': return 'bg-blue-50 text-blue-700 border-blue-200';
@@ -72,7 +74,9 @@ const getStatusColor = (status) => {
 const getStatusIcon = (status, className="w-4 h-4") => {
   switch(status?.toLowerCase()) {
     case 'cumplido': return <CheckCircle2 className={`${className} text-green-600`} />;
+    case 'en meta': return <CheckCircle2 className={`${className} text-green-600`} />;
     case 'en riesgo': return <AlertCircle className={`${className} text-yellow-600`} />;
+    case 'fuera de meta': return <AlertCircle className={`${className} text-red-600`} />;
     case 'en progreso': return <Activity className={`${className} text-blue-600`} />;
     default: return <Clock className={`${className} text-slate-400`} />;
   }
@@ -126,7 +130,8 @@ const Select = ({ label, options, className = "", ...props }) => (
 
 const ProgressBar = ({ progress, status }) => {
   let color = 'bg-[#3B82F6]';
-  if (status === 'Cumplido') color = 'bg-green-500';
+  if (status === 'Cumplido' || status === 'En meta') color = 'bg-green-500';
+  if (status === 'Fuera de meta') color = 'bg-red-500';
   if (status === 'En riesgo') color = 'bg-yellow-500';
   return (
     <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -147,13 +152,14 @@ export default function App() {
   
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
+  const [portfolioFilter, setPortfolioFilter] = useState(null);
 
   const navigateTo = (view, name, params = {}) => {
     setCurrentView(view);
     if (params.objectiveId) setSelectedObjectiveId(params.objectiveId);
     if (params.indicatorId) setSelectedIndicatorId(params.indicatorId);
-    if (view === 'dashboard') {
-      setNavHistory([{ id: 'dashboard', name: 'Monitor' }]);
+    if (['dashboard', 'objectives', 'gcg-review', 'settings'].includes(view)) {
+      setNavHistory([{ id: view, name }]);
     } else {
       let newHistory = [...navHistory];
       if (newHistory.length > 3) newHistory = [newHistory[0]];
@@ -166,12 +172,20 @@ export default function App() {
     const fulfilled = objectives.filter(o => o.status === 'Cumplido').length;
     const atRisk = objectives.filter(o => o.status === 'En riesgo').length;
     const averageProgress = Math.round(objectives.reduce((total, objective) => total + objective.progress, 0) / objectives.length);
-    const chartData = objectives.map(objective => ({ name: objective.name.split(' ').slice(0, 2).join(' '), avance: objective.progress }));
+    const chartData = objectives.map(objective => ({ name: objective.name, avance: objective.progress }));
     const distribution = [
       { name: 'Cumplidos', value: fulfilled, color: '#16a34a' },
       { name: 'En progreso', value: objectives.filter(o => o.status === 'En progreso').length, color: '#2563eb' },
       { name: 'En riesgo', value: atRisk, color: '#f59e0b' }
     ].filter(item => item.value > 0);
+    const isBehindSchedule = (objective) => {
+      const start = new Date(objective.createdDate || new Date().toISOString().split('T')[0]);
+      const end = new Date(objective.targetDate);
+      const now = new Date();
+      const expected = Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100));
+      return objective.status === 'En riesgo' || objective.progress + 10 < expected;
+    };
+    const alerts = objectives.filter(isBehindSchedule).filter(objective => !portfolioFilter || objective.status === portfolioFilter);
 
     return (
       <div className="space-y-6 fade-in">
@@ -192,11 +206,11 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div><button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button></div><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 12, right: 10, left: -18, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} /><YAxis unit="%" domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} /><Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value}%`, 'Avance']} /><Bar dataKey="avance" fill="#D71920" radius={[6, 6, 0, 0]} barSize={42} /></BarChart></ResponsiveContainer></div></Card>
-          <Card className="p-6"><h2 className="text-lg font-bold text-slate-900">Estado del portafolio</h2><p className="text-sm text-slate-500">Distribución de objetivos</p><div className="h-56 mt-2"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} paddingAngle={4}>{distribution.map(item => <Cell key={item.name} fill={item.color} />)}</Pie><Tooltip /><Legend iconType="circle" /></PieChart></ResponsiveContainer></div></Card>
+          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div><button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button></div><div className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 12, right: 18, left: 12, bottom: 42 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="name" axisLine={false} tickLine={false} interval={0} angle={-18} textAnchor="end" height={72} tick={{ fill: '#475569', fontSize: 11 }} /><YAxis unit="%" width={48} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12 }} /><Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value}%`, 'Avance']} /><Bar dataKey="avance" fill="#D71920" radius={[6, 6, 0, 0]} barSize={42} /></BarChart></ResponsiveContainer></div></Card>
+          <Card className="p-6"><div className="flex items-start justify-between gap-2"><div><h2 className="text-lg font-bold text-slate-900">Estado del portafolio</h2><p className="text-sm text-slate-500">Haz clic en una categoría para filtrar las alertas.</p></div>{portfolioFilter && <button onClick={() => setPortfolioFilter(null)} className="text-xs font-semibold text-[#D71920]">Limpiar</button>}</div><div className="h-56 mt-2"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} paddingAngle={4} cursor="pointer" onClick={(entry) => setPortfolioFilter(portfolioFilter === entry.name ? null : entry.name)}>{distribution.map(item => <Cell key={item.name} fill={item.color} opacity={!portfolioFilter || portfolioFilter === item.name ? 1 : .35} />)}</Pie><Tooltip /><Legend iconType="circle" /></PieChart></ResponsiveContainer></div></Card>
         </div>
 
-        <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex items-center justify-between"><div><h2 className="font-bold text-slate-900">Prioridades y alertas</h2><p className="text-sm text-slate-500">Aspectos que necesitan seguimiento del equipo.</p></div><Badge status={atRisk ? 'En riesgo' : 'Cumplido'}>{atRisk ? `${atRisk} alertas` : 'Sin alertas'}</Badge></div><div className="divide-y divide-slate-100">{objectives.map(objective => <button key={objective.id} onClick={() => navigateTo('objective-detail', objective.name, { objectiveId: objective.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1"><p className="font-semibold text-slate-900">{objective.name}</p><p className="text-sm text-slate-500 mt-0.5">Responsable: {MOCK_USERS.find(user => user.id === objective.ownerId)?.name}</p></div><div className="w-full sm:w-48"><div className="flex justify-between text-xs text-slate-500 mb-1"><span>Avance</span><span>{objective.progress}%</span></div><ProgressBar progress={objective.progress} status={objective.status} /></div><Badge status={objective.status}>{objective.status}</Badge></button>)}</div></Card>
+        <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Alertas</h2><p className="text-sm text-slate-500">Objetivos con avance menor al esperado según el tiempo transcurrido.</p></div><Badge status={alerts.length ? 'En riesgo' : 'Cumplido'}>{alerts.length ? `${alerts.length} alertas` : 'Sin alertas'}</Badge></div><div className="divide-y divide-slate-100">{alerts.length ? alerts.map(objective => <button key={objective.id} onClick={() => navigateTo('objective-detail', objective.name, { objectiveId: objective.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1 min-w-0"><p className="font-semibold text-slate-900 break-words">{objective.name}</p><p className="text-sm text-slate-500 mt-0.5">Responsable: {MOCK_USERS.find(user => user.id === objective.ownerId)?.name}</p></div><div className="w-full sm:w-48 shrink-0"><div className="flex justify-between text-xs text-slate-500 mb-1"><span>Avance</span><span>{objective.progress}%</span></div><ProgressBar progress={objective.progress} status={objective.status} /></div><Badge status={objective.status}>{objective.status}</Badge></button>) : <p className="p-8 text-center text-sm text-slate-500">No hay objetivos con retraso respecto al tiempo registrado.</p>}</div></Card>
       </div>
     );
   };
@@ -354,7 +368,7 @@ export default function App() {
 
     const handleSubmit = (e) => {
       e.preventDefault();
-      const newObj = { id: Date.now(), ...formData, stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean), ownerId: parseInt(formData.ownerId), progress: 0, status: 'No iniciado' };
+      const newObj = { id: Date.now(), ...formData, createdDate: new Date().toISOString().split('T')[0], stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean), ownerId: parseInt(formData.ownerId), progress: 0, status: 'No iniciado' };
       setObjectives([...objectives, newObj]);
       navigateTo('objectives', 'Objetivos');
     };
@@ -373,7 +387,7 @@ export default function App() {
               <textarea className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] min-h-[100px] text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <Select label="Perspectiva / Categoría *" required options={['Financiera', 'Clientes', 'Procesos Internos', 'Aprendizaje y Crecimiento', 'Innovación']} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
+              <Select label="Perspectiva *" required options={['Financiera', 'Clientes', 'Procesos Internos', 'Aprendizaje y Crecimiento', 'Innovación']} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
               <Select label="Responsable principal *" required options={MOCK_USERS.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -395,6 +409,7 @@ export default function App() {
     if (!obj) return null;
     const owner = MOCK_USERS.find(u => u.id === obj.ownerId);
     const objProjects = projects.filter(p => p.objectiveId === obj.id);
+    const objActions = tasks.filter(task => task.objectiveId === obj.id);
     const objIndicators = indicators.filter(i => i.objectiveId === obj.id);
     const [activeTab, setActiveTab] = useState('summary');
 
@@ -428,7 +443,7 @@ export default function App() {
         </div>
 
         <div className="border-b border-slate-200">
-          <div className="flex space-x-8">
+          <div className="flex gap-6 overflow-x-auto whitespace-nowrap pr-2">
             {[ { id: 'summary', label: 'Resumen', icon: Activity }, { id: 'projects', label: 'Proyectos y Tareas', icon: FolderKanban }, { id: 'indicators', label: 'Indicadores', icon: BarChart3 }].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? 'border-[#1D4ED8] text-[#1D4ED8]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
                 <tab.icon className="w-4 h-4" /> {tab.label}
@@ -476,10 +491,10 @@ export default function App() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-slate-900">Proyectos Vinculados</h3>
-                <Button onClick={() => navigateTo('new-project', 'Crear proyecto o tarea', { objectiveId: obj.id })} variant="secondary" className="text-xs py-1.5"><Plus className="w-4 h-4"/> Crear proyecto o tarea</Button>
+                <div className="flex gap-2"><Button variant="secondary" className="text-xs py-1.5"><FolderKanban className="w-4 h-4"/> Vincular proyecto</Button><Button onClick={() => navigateTo('new-project', 'Añadir acción estratégica', { objectiveId: obj.id })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Añadir acción estratégica</Button></div>
               </div>
               {objProjects.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Este objetivo no tiene proyectos.</p><Button onClick={() => navigateTo('new-project', 'Crear proyecto o tarea', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Crear o vincular</Button></div>
+                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Este objetivo no tiene proyectos vinculados.</p><Button onClick={() => navigateTo('new-project', 'Añadir acción estratégica', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Añadir acción estratégica</Button></div>
               ) : (
                 <div className="grid gap-4">
                   {objProjects.map(p => {
@@ -502,6 +517,7 @@ export default function App() {
                   })}
                 </div>
               )}
+              <Card className="p-5"><h4 className="font-semibold text-slate-900 mb-3">Acciones estratégicas</h4>{objActions.length ? <div className="space-y-3">{objActions.map(action => <div key={action.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2"><div className="min-w-0"><p className="text-sm font-medium text-slate-900 break-words">{action.name}</p>{action.description && <p className="text-xs text-slate-500 mt-1">{action.description}</p>}</div><div className="text-xs text-slate-500 shrink-0">Meta: {action.dueDate || 'Sin fecha'}</div></div>)}</div> : <p className="text-sm text-slate-500">Aún no hay acciones estratégicas registradas.</p>}</Card>
             </div>
           )}
 
@@ -541,15 +557,13 @@ export default function App() {
 
   const ProjectFormView = () => {
     const obj = objectives.find(item => item.id === selectedObjectiveId);
-    const [formData, setFormData] = useState({ name: '', source: 'Creado en aplicación', taskName: '' });
+    const [formData, setFormData] = useState({ name: '', description: '', dueDate: obj?.targetDate || '' });
     const handleSubmit = (e) => {
       e.preventDefault();
-      const projectId = Date.now();
-      setProjects(items => [...items, { id: projectId, objectiveId: selectedObjectiveId, name: formData.name, source: formData.source, status: 'En progreso', progress: 0, ownerId: obj?.ownerId }]);
-      if (formData.taskName.trim()) setTasks(items => [...items, { id: projectId + 1, projectId, name: formData.taskName.trim(), status: 'En progreso', dueDate: obj?.targetDate }]);
+      setTasks(items => [...items, { id: Date.now(), objectiveId: selectedObjectiveId, name: formData.name, description: formData.description, status: 'En progreso', dueDate: formData.dueDate }]);
       navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
     };
-    return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Crear o vincular proyecto</h1><p className="text-slate-500">Gerencia responsable · {obj?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre del proyecto *" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><Select label="Origen del proyecto" options={['Creado en aplicación', 'Vinculado desde Jira', 'Vinculado desde Microsoft Planner']} value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} /><Input label="Primera tarea (opcional)" placeholder="Ej.: Levantar requerimientos" value={formData.taskName} onChange={e => setFormData({...formData, taskName: e.target.value})} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button><Button type="submit">Guardar proyecto</Button></div></form></Card></div>;
+    return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Añadir acción estratégica</h1><p className="text-slate-500">Gerencia responsable · {obj?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required placeholder="Ej.: Implementar tablero de producción" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div><Input label="Fecha objetivo" type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button><Button type="submit">Registrar acción</Button></div></form></Card></div>;
   };
 
   const GcgReviewView = () => {
@@ -579,13 +593,13 @@ export default function App() {
             <h3 className="text-sm font-bold text-[#1D4ED8] uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">1. Información General</h3>
             <div className="space-y-4">
               <Input label="Nombre del indicador *" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-              <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Fuente de datos / Recurso</label><textarea className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm" rows={2} value={formData.resource} onChange={e => setFormData({...formData, resource: e.target.value})} /></div>
+              <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Recursos</label><textarea className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm" rows={2} value={formData.resource} onChange={e => setFormData({...formData, resource: e.target.value})} /></div>
             </div>
           </Card>
           <Card className="p-6">
             <h3 className="text-sm font-bold text-[#1D4ED8] uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">2. Medición</h3>
             <div className="space-y-4">
-              <Input label="Fórmula (Opcional)" value={formData.formula} onChange={e => setFormData({...formData, formula: e.target.value})} />
+              <Input label="Fórmula" value={formData.formula} onChange={e => setFormData({...formData, formula: e.target.value})} />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
                 <Select label="Comparador *" required options={[ {value: '>=', label: 'Mayor o igual (>=)'}, {value: '>', label: 'Mayor (>)'}, {value: '<=', label: 'Menor o igual (<=)'}, {value: '<', label: 'Menor (<)'}, {value: '=', label: 'Igual (=)'} ]} value={formData.comparator} onChange={e => setFormData({...formData, comparator: e.target.value})} />
                 <Input label="Meta *" type="number" step="0.01" required value={formData.target} onChange={e => setFormData({...formData, target: e.target.value})} />
@@ -596,7 +610,7 @@ export default function App() {
           <Card className="p-6">
             <h3 className="text-sm font-bold text-[#1D4ED8] uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">3. Gestión</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <Select label="Frecuencia de revisión *" required options={['Diaria', 'Semanal', 'Mensual', 'Trimestral', 'Semestral', 'Anual']} value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} />
+              <Select label="Plazo *" required options={['Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual']} value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} />
               <Select label="Responsable del reporte *" required options={MOCK_USERS.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
             </div>
           </Card>
@@ -675,7 +689,7 @@ export default function App() {
                 {[...indReports].reverse().map(r => (
                   <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{r.period}</td>
-                    <td className="px-6 py-4 text-slate-500">{r.date}</td>
+                    <td className="px-6 py-4 text-slate-500">{r.registeredDate || r.date}</td>
                     <td className="px-6 py-4 font-bold text-slate-900">{r.result} {ind.unit}</td>
                     <td className="px-6 py-4"><Badge status={r.status}>{r.status}</Badge></td>
                     <td className="px-6 py-4 text-slate-600 max-w-xs truncate" title={r.obs}>{r.obs || '-'}</td>
@@ -691,12 +705,15 @@ export default function App() {
 
   const ReportFormView = () => {
     const ind = indicators.find(i => i.id === selectedIndicatorId);
-    const [formData, setFormData] = useState({ period: '', date: new Date().toISOString().split('T')[0], result: '', obs: '' });
+    const [formData, setFormData] = useState({ period: '', result: '', obs: '' });
+    const registrationDate = new Date().toLocaleDateString('en-CA');
+    const registrationDateLabel = registrationDate.split('-').reverse().join('-');
+    const formatPeriod = (value) => { const [year, month] = value.split('-'); const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']; return value ? `${months[Number(month) - 1]},${year}` : ''; };
 
     const handleSubmit = (e) => {
       e.preventDefault();
       const calcStatus = calculateIndicatorStatus(formData.result, ind.target, ind.comparator);
-      const newReport = { id: Date.now(), indicatorId: ind.id, period: formData.period, date: formData.date, result: parseFloat(formData.result), obs: formData.obs, status: calcStatus };
+      const newReport = { id: Date.now(), indicatorId: ind.id, period: formatPeriod(formData.period), date: registrationDate, registeredDate: registrationDateLabel, result: parseFloat(formData.result), obs: formData.obs, status: calcStatus };
       setReports([...reports, newReport]);
       setIndicators(indicators.map(i => i.id === ind.id ? { ...i, status: calcStatus } : i));
       navigateTo('indicator-detail', ind.name, { indicatorId: ind.id });
@@ -714,10 +731,7 @@ export default function App() {
              <div className="text-right"><p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Frecuencia</p><p className="text-sm font-medium text-slate-700">{ind?.frequency}</p></div>
           </div>
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Periodo *" placeholder="Ej. Septiembre 2026" required value={formData.period} onChange={e => setFormData({...formData, period: e.target.value})} />
-              <Input label="Fecha de medición *" type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><Input label="Periodo de Registro *" type="month" required value={formData.period} onChange={e => setFormData({...formData, period: e.target.value})} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Fecha de registro</label><div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">{registrationDateLabel}</div></div></div>
             <div className="relative">
               <Input label={`Resultado obtenido (${ind?.unit}) *`} type="number" step="0.01" required className="text-lg" value={formData.result} onChange={e => setFormData({...formData, result: e.target.value})} />
               {formData.result && <div className="absolute right-3 top-9"><Badge status={calculateIndicatorStatus(formData.result, ind.target, ind.comparator)}>{calculateIndicatorStatus(formData.result, ind.target, ind.comparator)}</Badge></div>}
@@ -732,6 +746,8 @@ export default function App() {
       </div>
     )
   }
+
+  const SettingsView = () => <div className="max-w-3xl fade-in space-y-6"><div><h1 className="text-2xl font-bold text-slate-900">Configuración</h1><p className="text-slate-500 mt-1">Administra las preferencias generales de Bionexora.</p></div><Card className="p-6"><h2 className="font-semibold text-slate-900">Preferencias de visualización</h2><div className="mt-5 space-y-4"><label className="flex items-center justify-between gap-4 py-3 border-b border-slate-100"><span><span className="block text-sm font-medium text-slate-800">Alertas estratégicas</span><span className="block text-xs text-slate-500 mt-1">Muestra objetivos retrasados en el Monitor.</span></span><input type="checkbox" defaultChecked className="w-4 h-4 accent-[#D71920]" /></label><label className="flex items-center justify-between gap-4 py-3"><span><span className="block text-sm font-medium text-slate-800">Vista compacta</span><span className="block text-xs text-slate-500 mt-1">Reduce el espacio entre elementos del dashboard.</span></span><input type="checkbox" className="w-4 h-4 accent-[#D71920]" /></label></div></Card><Card className="p-6"><h2 className="font-semibold text-slate-900">Información de la plataforma</h2><p className="text-sm text-slate-500 mt-2">Bionexora · Plataforma estratégica de Biomont</p></Card></div>;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-slate-900">
@@ -752,12 +768,12 @@ export default function App() {
           </nav>
         </div>
         <div className="p-4 border-t border-slate-800">
-          <div className="flex items-center gap-3 px-3 py-2"><div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-white">CM</div><div className="flex-1 overflow-hidden"><p className="text-sm font-medium text-white truncate">Carlos Mendoza</p><p className="text-xs text-slate-500 truncate">Gerente General</p></div><Settings className="w-4 h-4 text-slate-400 cursor-pointer hover:text-white" /></div>
+          <div className="flex items-center gap-3 px-3 py-2"><div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-white">CM</div><div className="flex-1 overflow-hidden"><p className="text-sm font-medium text-white truncate">Carlos Mendoza</p><p className="text-xs text-slate-500 truncate">Gerente General</p></div><button onClick={() => navigateTo('settings', 'Configuración')} aria-label="Abrir configuración" className="p-1 rounded hover:bg-slate-700"><Settings className="w-4 h-4 text-slate-400 hover:text-white" /></button></div>
         </div>
       </aside>
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 sticky top-0 z-10 shadow-sm">
-           <div className="flex items-center text-sm text-slate-500 font-medium">
+           <div className="flex items-center text-sm text-slate-500 font-medium min-w-0 overflow-x-auto whitespace-nowrap">
              {navHistory.map((nav, idx) => (
                <React.Fragment key={idx}>
                  <span className={`cursor-pointer transition-colors ${idx === navHistory.length - 1 ? 'text-[#0F172A] font-semibold pointer-events-none' : 'hover:text-[#1D4ED8]'}`} onClick={() => { if(nav.id === 'dashboard') navigateTo('dashboard', 'Monitor'); }}>{nav.name}</span>
@@ -774,6 +790,7 @@ export default function App() {
           {currentView === 'new-project' && <ProjectFormView />}
           {currentView === 'new-indicator' && <IndicatorFormView />}
           {currentView === 'gcg-review' && <GcgReviewView />}
+          {currentView === 'settings' && <SettingsView />}
           {currentView === 'indicator-detail' && <IndicatorDetailView />}
           {currentView === 'report-indicator' && <ReportFormView />}
         </div>
