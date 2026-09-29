@@ -30,8 +30,8 @@ const INITIAL_TASKS = [
 ];
 
 const INITIAL_INDICATORS = [
-  { id: 1, objectiveId: 1, name: 'Cumplimiento del plan de producción', resource: 'Reportes diarios del sistema MES', formula: '(Unidades producidas / Unidades planificadas) × 100', target: 95, unit: '%', comparator: '>=', frequency: 'Mensual', ownerId: 3, status: 'En riesgo' },
-  { id: 2, objectiveId: 1, name: 'Reducción de merma', resource: 'Reporte de calidad', formula: '(Kg merma / Kg total procesado) × 100', target: 5, unit: '%', comparator: '<=', frequency: 'Semanal', ownerId: 3, status: 'Cumplido' }
+  { id: 1, objectiveId: 1, name: 'Cumplimiento del plan de producción', resource: 'Reportes diarios del sistema MES', formula: '(Unidades producidas / Unidades planificadas) × 100', target: 95, unit: '%', comparator: '>=', frequency: 'Mensual', ownerId: 3, status: 'En riesgo', approvalStatus: 'Aprobado' },
+  { id: 2, objectiveId: 1, name: 'Reducción de merma', resource: 'Reporte de calidad', formula: '(Kg merma / Kg total procesado) × 100', target: 5, unit: '%', comparator: '<=', frequency: 'Semanal', ownerId: 3, status: 'Cumplido', approvalStatus: 'Aprobado' }
 ];
 
 const INITIAL_REPORTS = [
@@ -201,6 +201,10 @@ export default function App() {
     );
   };
 
+  const reviewIndicator = (indicatorId, decision) => {
+    setIndicators(items => items.map(item => item.id === indicatorId ? { ...item, approvalStatus: decision === 'approve' ? 'Aprobado' : 'Reformular' } : item));
+  };
+
   const ObjectivesView = () => {
     const activeObs = objectives.filter(o => o.status === 'En progreso').length;
     const riskObs = objectives.filter(o => o.status === 'En riesgo').length;
@@ -346,11 +350,11 @@ export default function App() {
   };
 
   const ObjectiveFormView = () => {
-    const [formData, setFormData] = useState({ name: '', description: '', category: '', ownerId: '', targetDate: '' });
+    const [formData, setFormData] = useState({ name: '', description: '', category: '', ownerId: '', targetDate: '', stakeholders: '' });
 
     const handleSubmit = (e) => {
       e.preventDefault();
-      const newObj = { id: Date.now(), ...formData, ownerId: parseInt(formData.ownerId), progress: 0, status: 'No iniciado' };
+      const newObj = { id: Date.now(), ...formData, stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean), ownerId: parseInt(formData.ownerId), progress: 0, status: 'No iniciado' };
       setObjectives([...objectives, newObj]);
       navigateTo('objectives', 'Objetivos');
     };
@@ -375,6 +379,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                <Input label="Fecha objetivo *" type="date" required value={formData.targetDate} onChange={e => setFormData({...formData, targetDate: e.target.value})} />
             </div>
+            <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Personas interesadas</label><textarea rows={2} placeholder="Ej.: Finanzas, Operaciones, Calidad (separar por comas)" className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm" value={formData.stakeholders} onChange={e => setFormData({...formData, stakeholders: e.target.value})} /><p className="text-xs text-slate-500">Agrega las áreas o personas que deben ser informadas del objetivo.</p></div>
             <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => navigateTo('objectives', 'Objetivos')}>Cancelar</Button>
               <Button type="submit">Crear objetivo</Button>
@@ -418,6 +423,7 @@ export default function App() {
               <div><p className="text-xs text-slate-400 mb-1">Proyectos activos</p><p className="text-sm font-medium text-slate-900">{objProjects.length}</p></div>
               <div><p className="text-xs text-slate-400 mb-1">Indicadores medidos</p><p className="text-sm font-medium text-slate-900">{objIndicators.length}</p></div>
             </div>
+            <div className="pt-4 border-t border-slate-100"><p className="text-xs text-slate-400 mb-2">Personas interesadas</p>{obj.stakeholders?.length ? <div className="flex flex-wrap gap-2">{obj.stakeholders.map(person => <span key={person} className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{person}</span>)}</div> : <p className="text-sm text-slate-500">Aún no se han agregado personas interesadas.</p>}</div>
           </div>
         </div>
 
@@ -470,10 +476,10 @@ export default function App() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-slate-900">Proyectos Vinculados</h3>
-                <Button variant="secondary" className="text-xs py-1.5"><Plus className="w-4 h-4"/> Añadir Proyecto</Button>
+                <Button onClick={() => navigateTo('new-project', 'Crear proyecto o tarea', { objectiveId: obj.id })} variant="secondary" className="text-xs py-1.5"><Plus className="w-4 h-4"/> Crear proyecto o tarea</Button>
               </div>
               {objProjects.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Este objetivo no tiene proyectos.</p><Button variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Vincular Proyecto</Button></div>
+                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Este objetivo no tiene proyectos.</p><Button onClick={() => navigateTo('new-project', 'Crear proyecto o tarea', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Crear o vincular</Button></div>
               ) : (
                 <div className="grid gap-4">
                   {objProjects.map(p => {
@@ -515,7 +521,7 @@ export default function App() {
                       <Card key={ind.id} className="p-5 flex flex-col h-full" onClick={() => navigateTo('indicator-detail', ind.name, { indicatorId: ind.id, objectiveId: obj.id })}>
                         <div className="flex justify-between items-start mb-4">
                           <div className="pr-4"><h4 className="font-semibold text-slate-900 hover:text-[#1D4ED8] transition-colors">{ind.name}</h4><p className="text-xs text-slate-500 mt-1">Frecuencia: {ind.frequency}</p></div>
-                          <Badge status={ind.status}>{ind.status}</Badge>
+                          <div className="flex flex-col items-end gap-2"><Badge status={ind.status}>{ind.status}</Badge><span className={`text-[11px] font-semibold ${ind.approvalStatus === 'Aprobado' ? 'text-green-700' : ind.approvalStatus === 'Reformular' ? 'text-red-600' : 'text-amber-600'}`}>{ind.approvalStatus || 'Pendiente de aprobación GCG'}</span></div>
                         </div>
                         <div className="mt-auto pt-4 border-t border-slate-100 flex items-end justify-between">
                           <div><p className="text-xs text-slate-400 mb-1">Último resultado</p><p className="text-2xl font-bold text-slate-900">{latest?.result || '-'} <span className="text-sm font-medium text-slate-500">{ind.unit}</span></p></div>
@@ -533,13 +539,31 @@ export default function App() {
     );
   };
 
+  const ProjectFormView = () => {
+    const obj = objectives.find(item => item.id === selectedObjectiveId);
+    const [formData, setFormData] = useState({ name: '', source: 'Creado en aplicación', taskName: '' });
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      const projectId = Date.now();
+      setProjects(items => [...items, { id: projectId, objectiveId: selectedObjectiveId, name: formData.name, source: formData.source, status: 'En progreso', progress: 0, ownerId: obj?.ownerId }]);
+      if (formData.taskName.trim()) setTasks(items => [...items, { id: projectId + 1, projectId, name: formData.taskName.trim(), status: 'En progreso', dueDate: obj?.targetDate }]);
+      navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
+    };
+    return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Crear o vincular proyecto</h1><p className="text-slate-500">Gerencia responsable · {obj?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre del proyecto *" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><Select label="Origen del proyecto" options={['Creado en aplicación', 'Vinculado desde Jira', 'Vinculado desde Microsoft Planner']} value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} /><Input label="Primera tarea (opcional)" placeholder="Ej.: Levantar requerimientos" value={formData.taskName} onChange={e => setFormData({...formData, taskName: e.target.value})} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button><Button type="submit">Guardar proyecto</Button></div></form></Card></div>;
+  };
+
+  const GcgReviewView = () => {
+    const pending = indicators.filter(indicator => indicator.approvalStatus === 'Pendiente de aprobación' || indicator.approvalStatus === 'Reformular');
+    return <div className="fade-in space-y-6"><div><p className="text-sm font-semibold text-[#D71920] uppercase tracking-wider">GCG · Control de gestión</p><h1 className="text-2xl font-bold text-slate-900 mt-1">Revisión de indicadores</h1><p className="text-slate-500 mt-1">Aprueba indicadores listos para medición o devuélvelos a la gerencia responsable para reformulación.</p></div><Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex justify-between items-center"><h2 className="font-semibold text-slate-900">Bandeja de revisión</h2><span className="text-sm text-slate-500">{pending.length} pendientes</span></div>{pending.length === 0 ? <div className="p-10 text-center text-slate-500">No hay indicadores pendientes de revisión.</div> : <div className="divide-y divide-slate-100">{pending.map(indicator => { const objective = objectives.find(item => item.id === indicator.objectiveId); return <div key={indicator.id} className="p-5"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p className="font-semibold text-slate-900">{indicator.name}</p><p className="text-sm text-slate-500 mt-1">Objetivo: {objective?.name} · Meta: {indicator.comparator} {indicator.target} {indicator.unit}</p><p className="text-xs text-slate-500 mt-2">Frecuencia: {indicator.frequency} · Responsable: {MOCK_USERS.find(user => user.id === Number(indicator.ownerId))?.name || 'Sin asignar'}</p></div><div className="flex gap-2 shrink-0"><Button variant="secondary" onClick={() => reviewIndicator(indicator.id, 'reject')}>Rechazar y reformular</Button><Button onClick={() => reviewIndicator(indicator.id, 'approve')}><CheckCircle2 className="w-4 h-4" /> Aprobar</Button></div></div></div>})}</div>}</Card></div>;
+  };
+
   const IndicatorFormView = () => {
     const obj = objectives.find(o => o.id === selectedObjectiveId);
     const [formData, setFormData] = useState({ name: '', resource: '', formula: '', target: '', unit: '%', comparator: '>=', frequency: 'Mensual', ownerId: '' });
 
     const handleSubmit = (e) => {
       e.preventDefault();
-      const newInd = { id: Date.now(), objectiveId: selectedObjectiveId, ...formData, target: parseFloat(formData.target), status: 'Sin reporte' };
+      const newInd = { id: Date.now(), objectiveId: selectedObjectiveId, ...formData, target: parseFloat(formData.target), status: 'Sin reporte', approvalStatus: 'Pendiente de aprobación' };
       setIndicators([...indicators, newInd]);
       navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
     };
@@ -592,6 +616,7 @@ export default function App() {
     const indReports = reports.filter(r => r.indicatorId === ind.id).sort((a,b) => new Date(a.date) - new Date(b.date));
     const latestReport = indReports[indReports.length - 1];
     const chartData = indReports.map(r => ({ name: r.period.split(' ')[0], Resultado: parseFloat(r.result), Meta: ind.target }));
+    const isApproved = ind.approvalStatus === 'Aprobado';
 
     return (
       <div className="fade-in space-y-6">
@@ -618,8 +643,9 @@ export default function App() {
         <Card className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-semibold text-slate-900">Tendencia Histórica</h3>
-            <Button onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary" className="text-sm"><Plus className="w-4 h-4"/> Registrar Resultado</Button>
+            <Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary" className="text-sm"><Plus className="w-4 h-4"/> Registrar Resultado</Button>
           </div>
+          {!isApproved && <div className="mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">Este indicador está <strong>{ind.approvalStatus || 'pendiente de aprobación GCG'}</strong>. La gerencia responsable podrá reportar resultados cuando GCG lo apruebe.</div>}
           {chartData.length > 0 ? (
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -718,6 +744,7 @@ export default function App() {
             <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo('objectives', 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> Objetivos</button>
+            <button onClick={() => navigateTo('gcg-review', 'Revisión GCG')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Revisión GCG</button>
             <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-800 hover:text-white opacity-50 cursor-not-allowed`}><FolderKanban className="w-5 h-5" /> Proyectos y Tareas</button>
             <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-800 hover:text-white opacity-50 cursor-not-allowed`}><TrendingUp className="w-5 h-5" /> Indicadores</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Análisis</p></div>
@@ -744,7 +771,9 @@ export default function App() {
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
           {currentView === 'objective-detail' && <ObjectiveDetailView />}
+          {currentView === 'new-project' && <ProjectFormView />}
           {currentView === 'new-indicator' && <IndicatorFormView />}
+          {currentView === 'gcg-review' && <GcgReviewView />}
           {currentView === 'indicator-detail' && <IndicatorDetailView />}
           {currentView === 'report-indicator' && <ReportFormView />}
         </div>
