@@ -154,8 +154,12 @@ export default function App() {
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState(null);
   const [selectedRole, setSelectedRole] = useState(null);
+  const isGeneralManager = selectedRole?.name === 'Gerente general';
+  const isResponsibleManager = selectedRole?.name === 'Gerente responsable';
+  const isGcg = selectedRole?.name === 'GCG';
 
   const navigateTo = (view, name, params = {}) => {
+    if ((view === 'new-objective' && !isGeneralManager) || (['new-project', 'new-indicator', 'report-indicator'].includes(view) && !isResponsibleManager) || (view === 'gcg-review' && !isGcg)) return;
     setCurrentView(view);
     if (params.objectiveId) setSelectedObjectiveId(params.objectiveId);
     if (params.indicatorId) setSelectedIndicatorId(params.indicatorId);
@@ -233,9 +237,9 @@ export default function App() {
             <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">Buenos días, Carlos</h1>
             <p className="text-slate-500 mt-1">Aquí está el resumen estratégico de tu organización.</p>
           </div>
-          <Button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="hidden sm:flex">
+          {isGeneralManager && <Button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="hidden sm:flex">
             <Plus className="w-4 h-4" /> Nuevo Objetivo
-          </Button>
+          </Button>}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -492,10 +496,10 @@ export default function App() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-slate-900">Proyectos Vinculados</h3>
-                <div className="flex gap-2"><Button variant="secondary" className="text-xs py-1.5"><FolderKanban className="w-4 h-4"/> Vincular proyecto</Button><Button onClick={() => navigateTo('new-project', 'Añadir acción estratégica', { objectiveId: obj.id })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Añadir acción estratégica</Button></div>
+                {isResponsibleManager && <div className="flex gap-2"><Button variant="secondary" className="text-xs py-1.5"><FolderKanban className="w-4 h-4"/> Vincular proyecto</Button><Button onClick={() => navigateTo('new-project', 'Añadir acción estratégica', { objectiveId: obj.id })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Añadir acción estratégica</Button></div>}
               </div>
               {objProjects.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Este objetivo no tiene proyectos vinculados.</p><Button onClick={() => navigateTo('new-project', 'Añadir acción estratégica', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Añadir acción estratégica</Button></div>
+                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Este objetivo no tiene proyectos vinculados.</p>{isResponsibleManager && <Button onClick={() => navigateTo('new-project', 'Añadir acción estratégica', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Añadir acción estratégica</Button>}</div>
               ) : (
                 <div className="grid gap-4">
                   {objProjects.map(p => {
@@ -526,10 +530,10 @@ export default function App() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-slate-900">Indicadores Estratégicos</h3>
-                <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Crear Indicador</Button>
+                {isResponsibleManager && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Crear Indicador</Button>}
               </div>
               {objIndicators.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><BarChart3 className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Aún no hay indicadores para medir este objetivo.</p><Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Definir primer indicador</Button></div>
+                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><BarChart3 className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Aún no hay indicadores para medir este objetivo.</p>{isResponsibleManager && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Definir primer indicador</Button>}</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {objIndicators.map(ind => {
@@ -658,7 +662,7 @@ export default function App() {
         <Card className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-semibold text-slate-900">Tendencia Histórica</h3>
-            <Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary" className="text-sm"><Plus className="w-4 h-4"/> Registrar Resultado</Button>
+            {isResponsibleManager && <Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary" className="text-sm"><Plus className="w-4 h-4"/> Registrar Resultado</Button>}
           </div>
           {!isApproved && <div className="mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">Este indicador está <strong>{ind.approvalStatus || 'pendiente de aprobación GCG'}</strong>. La gerencia responsable podrá reportar resultados cuando GCG lo apruebe.</div>}
           {chartData.length > 0 ? (
@@ -748,7 +752,7 @@ export default function App() {
     )
   }
 
-  const SettingsView = () => <div className="max-w-3xl fade-in space-y-6"><div><h1 className="text-2xl font-bold text-slate-900">Configuración</h1><p className="text-slate-500 mt-1">Administra las preferencias generales de Bionexora.</p></div><Card className="p-6"><h2 className="font-semibold text-slate-900">Preferencias de visualización</h2><div className="mt-5 space-y-4"><label className="flex items-center justify-between gap-4 py-3 border-b border-slate-100"><span><span className="block text-sm font-medium text-slate-800">Alertas estratégicas</span><span className="block text-xs text-slate-500 mt-1">Muestra objetivos retrasados en el Monitor.</span></span><input type="checkbox" defaultChecked className="w-4 h-4 accent-[#D71920]" /></label><label className="flex items-center justify-between gap-4 py-3"><span><span className="block text-sm font-medium text-slate-800">Vista compacta</span><span className="block text-xs text-slate-500 mt-1">Reduce el espacio entre elementos del dashboard.</span></span><input type="checkbox" className="w-4 h-4 accent-[#D71920]" /></label></div></Card><Card className="p-6"><h2 className="font-semibold text-slate-900">Información de la plataforma</h2><p className="text-sm text-slate-500 mt-2">Bionexora · Plataforma estratégica de Biomont</p></Card></div>;
+  const SettingsView = () => <div className="max-w-3xl fade-in space-y-6"><div><h1 className="text-2xl font-bold text-slate-900">Configuración</h1><p className="text-slate-500 mt-1">Administra las preferencias generales de Bionexora.</p></div><Card className="p-6"><h2 className="font-semibold text-slate-900">Preferencias de visualización</h2><div className="mt-5 space-y-4"><label className="flex items-center justify-between gap-4 py-3 border-b border-slate-100"><span><span className="block text-sm font-medium text-slate-800">Alertas estratégicas</span><span className="block text-xs text-slate-500 mt-1">Muestra objetivos retrasados en el Monitor.</span></span><input type="checkbox" defaultChecked className="w-4 h-4 accent-[#D71920]" /></label><label className="flex items-center justify-between gap-4 py-3"><span><span className="block text-sm font-medium text-slate-800">Vista compacta</span><span className="block text-xs text-slate-500 mt-1">Reduce el espacio entre elementos del dashboard.</span></span><input type="checkbox" className="w-4 h-4 accent-[#D71920]" /></label></div></Card><Card className="p-6"><h2 className="font-semibold text-slate-900">Sesión</h2><p className="text-sm text-slate-500 mt-2">Rol actual: {selectedRole.name}</p><Button variant="secondary" className="mt-4" onClick={() => { setSelectedRole(null); setCurrentView('dashboard'); }}>Cambiar rol</Button></Card><Card className="p-6"><h2 className="font-semibold text-slate-900">Información de la plataforma</h2><p className="text-sm text-slate-500 mt-2">Bionexora · Plataforma estratégica de Biomont</p></Card></div>;
 
   if (!selectedRole) {
     const roles = [
@@ -770,7 +774,7 @@ export default function App() {
             <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo('objectives', 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> Objetivos</button>
-            <button onClick={() => navigateTo('gcg-review', 'Revisión GCG')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Revisión GCG</button>
+            {isGcg && <button onClick={() => navigateTo('gcg-review', 'Revisión GCG')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Revisión GCG</button>}
             <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-800 hover:text-white opacity-50 cursor-not-allowed`}><FolderKanban className="w-5 h-5" /> Proyectos y Tareas</button>
             <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-800 hover:text-white opacity-50 cursor-not-allowed`}><TrendingUp className="w-5 h-5" /> Indicadores</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Análisis</p></div>
@@ -807,7 +811,7 @@ export default function App() {
       </main>
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50">
         <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#D71920]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Monitor</span></button>
-        <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Nuevo</span></button>
+        {isGeneralManager ? <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Objetivo</span></button> : <button onClick={() => navigateTo('objectives', 'Objetivos')} className="flex flex-col items-center gap-1 text-slate-500"><Target className="w-5 h-5" /><span className="text-[10px] font-medium">Objetivos</span></button>}
         <button className="flex flex-col items-center gap-1 text-slate-500 opacity-50"><User className="w-5 h-5" /><span className="text-[10px] font-medium">Perfil</span></button>
       </div>
     </div>
