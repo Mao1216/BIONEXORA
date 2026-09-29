@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, Target, FolderKanban, TrendingUp, FileText, Settings, User, Plus, 
-  ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, BarChart3, Calendar, Users, Briefcase, Activity
+  ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, BarChart3, Calendar, Users, Activity, ShieldCheck
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
+import biomontLogo from './assets/biomont-logo.png';
 
 const MOCK_USERS = [
   { id: 1, name: 'Carlos Mendoza', role: 'Gerente General', avatar: 'CM' },
@@ -136,7 +137,8 @@ const ProgressBar = ({ progress, status }) => {
 
 export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
-  const [navHistory, setNavHistory] = useState([{ id: 'dashboard', name: 'Inicio' }]);
+  const [navHistory, setNavHistory] = useState([{ id: 'dashboard', name: 'Monitor' }]);
+  const [selectedRole, setSelectedRole] = useState(null);
   
   const [objectives, setObjectives] = useState(INITIAL_OBJECTIVES);
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
@@ -152,7 +154,7 @@ export default function App() {
     if (params.objectiveId) setSelectedObjectiveId(params.objectiveId);
     if (params.indicatorId) setSelectedIndicatorId(params.indicatorId);
     if (view === 'dashboard') {
-      setNavHistory([{ id: 'dashboard', name: 'Inicio' }]);
+      setNavHistory([{ id: 'dashboard', name: 'Monitor' }]);
     } else {
       let newHistory = [...navHistory];
       if (newHistory.length > 3) newHistory = [newHistory[0]];
@@ -161,7 +163,46 @@ export default function App() {
     }
   };
 
-  const DashboardView = () => {
+  const MonitorView = () => {
+    const fulfilled = objectives.filter(o => o.status === 'Cumplido').length;
+    const atRisk = objectives.filter(o => o.status === 'En riesgo').length;
+    const averageProgress = Math.round(objectives.reduce((total, objective) => total + objective.progress, 0) / objectives.length);
+    const chartData = objectives.map(objective => ({ name: objective.name.split(' ').slice(0, 2).join(' '), avance: objective.progress }));
+    const distribution = [
+      { name: 'Cumplidos', value: fulfilled, color: '#16a34a' },
+      { name: 'En progreso', value: objectives.filter(o => o.status === 'En progreso').length, color: '#2563eb' },
+      { name: 'En riesgo', value: atRisk, color: '#f59e0b' }
+    ].filter(item => item.value > 0);
+
+    return (
+      <div className="space-y-6 fade-in">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-[#D71920] uppercase tracking-[0.16em]">Bionexora</p>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight mt-1">Monitor estratégico</h1>
+            <p className="text-slate-500 mt-1">Vista ejecutiva del avance de los objetivos de Biomont.</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-2 text-sm font-medium text-slate-600 shadow-sm"><Calendar className="w-4 h-4 text-[#D71920]" /> Periodo: 2026</div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Avance estratégico</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{averageProgress}%</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><p className="text-xs text-slate-500 mt-3">Promedio de objetivos activos</p></Card>
+          <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Objetivos activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{objectives.length}</h3><Target className="w-6 h-6 text-blue-600" /></div><p className="text-xs text-slate-500 mt-3">En seguimiento este periodo</p></Card>
+          <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">Objetivos cumplidos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{fulfilled}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">Resultados logrados</p></Card>
+          <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Alertas de riesgo</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{atRisk}</h3><AlertCircle className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-amber-700 mt-3">Requieren atención</p></Card>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div><button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button></div><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 12, right: 10, left: -18, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} /><YAxis unit="%" domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} /><Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value}%`, 'Avance']} /><Bar dataKey="avance" fill="#D71920" radius={[6, 6, 0, 0]} barSize={42} /></BarChart></ResponsiveContainer></div></Card>
+          <Card className="p-6"><h2 className="text-lg font-bold text-slate-900">Estado del portafolio</h2><p className="text-sm text-slate-500">Distribución de objetivos</p><div className="h-56 mt-2"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} paddingAngle={4}>{distribution.map(item => <Cell key={item.name} fill={item.color} />)}</Pie><Tooltip /><Legend iconType="circle" /></PieChart></ResponsiveContainer></div></Card>
+        </div>
+
+        <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex items-center justify-between"><div><h2 className="font-bold text-slate-900">Prioridades y alertas</h2><p className="text-sm text-slate-500">Aspectos que necesitan seguimiento del equipo.</p></div><Badge status={atRisk ? 'En riesgo' : 'Cumplido'}>{atRisk ? `${atRisk} alertas` : 'Sin alertas'}</Badge></div><div className="divide-y divide-slate-100">{objectives.map(objective => <button key={objective.id} onClick={() => navigateTo('objective-detail', objective.name, { objectiveId: objective.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1"><p className="font-semibold text-slate-900">{objective.name}</p><p className="text-sm text-slate-500 mt-0.5">Responsable: {MOCK_USERS.find(user => user.id === objective.ownerId)?.name}</p></div><div className="w-full sm:w-48"><div className="flex justify-between text-xs text-slate-500 mb-1"><span>Avance</span><span>{objective.progress}%</span></div><ProgressBar progress={objective.progress} status={objective.status} /></div><Badge status={objective.status}>{objective.status}</Badge></button>)}</div></Card>
+      </div>
+    );
+  };
+
+  const ObjectivesView = () => {
     const activeObs = objectives.filter(o => o.status === 'En progreso').length;
     const riskObs = objectives.filter(o => o.status === 'En riesgo').length;
     const doneObs = objectives.filter(o => o.status === 'Cumplido').length;
@@ -312,7 +353,7 @@ export default function App() {
       e.preventDefault();
       const newObj = { id: Date.now(), ...formData, ownerId: parseInt(formData.ownerId), progress: 0, status: 'No iniciado' };
       setObjectives([...objectives, newObj]);
-      navigateTo('dashboard', 'Inicio');
+      navigateTo('objectives', 'Objetivos');
     };
 
     return (
@@ -336,7 +377,7 @@ export default function App() {
                <Input label="Fecha objetivo *" type="date" required value={formData.targetDate} onChange={e => setFormData({...formData, targetDate: e.target.value})} />
             </div>
             <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
-              <Button type="button" variant="ghost" onClick={() => navigateTo('dashboard', 'Inicio')}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={() => navigateTo('objectives', 'Objetivos')}>Cancelar</Button>
               <Button type="submit">Crear objetivo</Button>
             </div>
           </form>
@@ -667,15 +708,33 @@ export default function App() {
     )
   }
 
+  if (!selectedRole) {
+    const roles = [
+      { name: 'Dirección', description: 'Consulta el avance estratégico y toma decisiones.', icon: ShieldCheck, color: 'bg-red-50 text-[#D71920] border-red-100' },
+      { name: 'Líder de objetivo', description: 'Gestiona objetivos, indicadores y avances de su equipo.', icon: Target, color: 'bg-blue-50 text-blue-600 border-blue-100' },
+      { name: 'Colaborador', description: 'Revisa las iniciativas y los resultados asignados.', icon: Users, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }
+    ];
+    return (
+      <main className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-5 relative overflow-hidden">
+        <div className="absolute -top-32 -right-28 w-96 h-96 rounded-full bg-red-100/60 blur-3xl" />
+        <div className="w-full max-w-5xl relative">
+          <div className="text-center mb-9"><img src={biomontLogo} alt="Biomont" className="h-20 w-auto object-contain mx-auto mb-6" /><p className="text-sm font-bold text-[#D71920] uppercase tracking-[0.2em]">Plataforma estratégica</p><h1 className="text-4xl font-bold text-slate-900 mt-2">Bienvenido a Bionexora</h1><p className="text-slate-500 mt-3 max-w-xl mx-auto">Antes de ingresar, selecciona el rol con el que trabajarás en la plataforma.</p></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">{roles.map(role => { const Icon = role.icon; return <button key={role.name} onClick={() => setSelectedRole(role)} className="bg-white border border-slate-200 rounded-2xl p-6 text-left shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-[#D71920]/40 transition-all group"><div className={`w-12 h-12 border rounded-xl flex items-center justify-center ${role.color}`}><Icon className="w-6 h-6" /></div><h2 className="text-lg font-bold text-slate-900 mt-5">{role.name}</h2><p className="text-sm text-slate-500 leading-6 mt-2">{role.description}</p><div className="flex items-center gap-2 text-sm font-semibold text-[#D71920] mt-6">Ingresar <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></div></button>})}</div>
+          <p className="text-center text-xs text-slate-400 mt-8">Biomont · Bionexora</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-slate-900">
       <aside className="w-64 bg-[#0F172A] text-slate-300 flex-col hidden md:flex fixed h-full z-20">
         <div className="h-16 flex items-center px-6 border-b border-slate-800">
-          <div className="flex items-center gap-2 text-white font-bold text-xl tracking-tight"><div className="w-8 h-8 bg-gradient-to-br from-[#1D4ED8] to-[#14B8A6] rounded-lg flex items-center justify-center shadow-lg"><span className="text-white">S</span></div>STRATEGIA</div>
+          <div className="flex items-center gap-2"><img src={biomontLogo} alt="Biomont" className="w-12 h-8 object-contain" /><span className="text-white font-bold text-lg tracking-tight">Bionexora</span></div>
         </div>
         <div className="flex-1 overflow-y-auto py-6">
           <nav className="px-4 space-y-1">
-            <button onClick={() => navigateTo('dashboard', 'Inicio')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Inicio</button>
+            <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo('objectives', 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> Objetivos</button>
             <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-800 hover:text-white opacity-50 cursor-not-allowed`}><FolderKanban className="w-5 h-5" /> Proyectos y Tareas</button>
@@ -693,15 +752,15 @@ export default function App() {
            <div className="flex items-center text-sm text-slate-500 font-medium">
              {navHistory.map((nav, idx) => (
                <React.Fragment key={idx}>
-                 <span className={`cursor-pointer transition-colors ${idx === navHistory.length - 1 ? 'text-[#0F172A] font-semibold pointer-events-none' : 'hover:text-[#1D4ED8]'}`} onClick={() => { if(nav.id === 'dashboard') navigateTo('dashboard', 'Inicio'); }}>{nav.name}</span>
+                 <span className={`cursor-pointer transition-colors ${idx === navHistory.length - 1 ? 'text-[#0F172A] font-semibold pointer-events-none' : 'hover:text-[#1D4ED8]'}`} onClick={() => { if(nav.id === 'dashboard') navigateTo('dashboard', 'Monitor'); }}>{nav.name}</span>
                  {idx < navHistory.length - 1 && <ChevronRight className="w-4 h-4 mx-2 text-slate-300" />}
                </React.Fragment>
              ))}
            </div>
         </header>
         <div className="p-6 md:p-8 flex-1">
-          {currentView === 'dashboard' && <DashboardView />}
-          {currentView === 'objectives' && <DashboardView />}
+          {currentView === 'dashboard' && <MonitorView />}
+          {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
           {currentView === 'objective-detail' && <ObjectiveDetailView />}
           {currentView === 'new-indicator' && <IndicatorFormView />}
@@ -710,7 +769,7 @@ export default function App() {
         </div>
       </main>
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50">
-        <button onClick={() => navigateTo('dashboard', 'Inicio')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#1D4ED8]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Inicio</span></button>
+        <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#D71920]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Monitor</span></button>
         <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Nuevo</span></button>
         <button className="flex flex-col items-center gap-1 text-slate-500 opacity-50"><User className="w-5 h-5" /><span className="text-[10px] font-medium">Perfil</span></button>
       </div>
