@@ -417,7 +417,7 @@ export default function App() {
                           <div key={ind.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
                             <div><p className="text-sm font-medium text-slate-800">{ind.name}</p><p className="text-xs text-slate-500 mt-0.5">Meta: {ind.comparator} {ind.target} {ind.unit}</p></div>
                             <div className="text-right"><Badge status={ind.status}>{ind.status}</Badge><p className="text-xs font-bold mt-1 text-slate-700">Actual: {latest?.result || '-'} {ind.unit}</p></div>
-                          </div>
+                          </div> 
                         )
                      })}
                    </div>
