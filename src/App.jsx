@@ -14,6 +14,12 @@ const ROLE_LABELS = {
   super_admin: 'Super admin',
 };
 
+const toObjective = (row) => ({ ...row, ownerId: row.owner_email, createdDate: row.created_date, targetDate: row.target_date });
+const toProject = (row) => ({ ...row, objectiveId: row.objective_id, ownerId: row.owner_email });
+const toAction = (row) => ({ ...row, objectiveId: row.objective_id, projectId: row.project_id, dueDate: row.due_date });
+const toIndicator = (row) => ({ ...row, objectiveId: row.objective_id, ownerId: row.owner_email, approvalStatus: row.approval_status, target: Number(row.target) });
+const toReport = (row) => ({ ...row, indicatorId: row.indicator_id, date: row.registered_date, result: Number(row.result), obs: row.observations });
+
 // La aplicación inicia sin datos operativos. Los usuarios registrados crean los
 // objetivos, acciones, indicadores y reportes reales desde Bionexora.
 const INITIAL_OBJECTIVES = [];
@@ -139,6 +145,7 @@ export default function App() {
   const [assignedRole, setAssignedRole] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  const [dataError, setDataError] = useState('');
   const isGeneralManager = selectedRole?.name === 'Gerente general';
   const isResponsibleManager = selectedRole?.name === 'Gerente responsable';
   const isGcg = selectedRole?.name === 'GCG';
@@ -149,6 +156,28 @@ export default function App() {
     avatar: (session.user.user_metadata?.full_name || session.user.email).split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase(),
   }] : [];
   const MOCK_USERS = availableUsers;
+
+  const loadOperationalData = async () => {
+    if (!supabase) return;
+    const [objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult] = await Promise.all([
+      supabase.from('objectives').select('*').order('created_at', { ascending: false }),
+      supabase.from('projects').select('*').order('created_at', { ascending: false }),
+      supabase.from('strategic_actions').select('*').order('created_at', { ascending: false }),
+      supabase.from('indicators').select('*').order('created_at', { ascending: false }),
+      supabase.from('indicator_reports').select('*').order('registered_date', { ascending: true }),
+    ]);
+    const firstError = [objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult].find(result => result.error)?.error;
+    if (firstError) {
+      setDataError('La estructura de datos de Supabase aún no está disponible. Ejecuta la migración 002_operational_data.sql.');
+      return;
+    }
+    setObjectives((objectivesResult.data || []).map(toObjective));
+    setProjects((projectsResult.data || []).map(toProject));
+    setTasks((actionsResult.data || []).map(toAction));
+    setIndicators((indicatorsResult.data || []).map(toIndicator));
+    setReports((reportsResult.data || []).map(toReport));
+    setDataError('');
+  };
 
   useEffect(() => {
     if (!supabase) {
@@ -198,6 +227,7 @@ export default function App() {
         setAuthError('');
         setAssignedRole(data.role);
         setSelectedRole(data.role === 'super_admin' ? null : { key: data.role, name: ROLE_LABELS[data.role] });
+        await loadOperationalData();
       }
       setAuthLoading(false);
     };
@@ -305,8 +335,14 @@ export default function App() {
     );
   };
 
-  const reviewIndicator = (indicatorId, decision) => {
-    setIndicators(items => items.map(item => item.id === indicatorId ? { ...item, approvalStatus: decision === 'approve' ? 'Aprobado' : 'Reformular' } : item));
+  const reviewIndicator = async (indicatorId, decision) => {
+    const approvalStatus = decision === 'approve' ? 'Aprobado' : 'Reformular';
+    const { error } = await supabase.from('indicators').update({ approval_status: approvalStatus, updated_at: new Date().toISOString() }).eq('id', indicatorId);
+    if (error) {
+      setDataError('No se pudo actualizar la revisión del indicador. Inténtalo nuevamente.');
+      return;
+    }
+    setIndicators(items => items.map(item => item.id === indicatorId ? { ...item, approvalStatus } : item));
   };
 
   const ObjectivesView = () => {
@@ -456,10 +492,22 @@ export default function App() {
   const ObjectiveFormView = () => {
     const [formData, setFormData] = useState({ name: '', description: '', category: '', ownerId: '', targetDate: '', stakeholders: '' });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
       e.preventDefault();
-      const newObj = { id: Date.now(), ...formData, createdDate: new Date().toISOString().split('T')[0], stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean), progress: 0, status: 'No iniciado' };
-      setObjectives([...objectives, newObj]);
+      const { data, error } = await supabase.from('objectives').insert({
+        name: formData.name,
+        description: formData.description,
+        category: formData.category,
+        owner_email: formData.ownerId || null,
+        target_date: formData.targetDate,
+        stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean),
+        created_by: session.user.id,
+      }).select().single();
+      if (error) {
+        setDataError('No se pudo crear el objetivo. Inténtalo nuevamente.');
+        return;
+      }
+      setObjectives([toObjective(data), ...objectives]);
       navigateTo(isGeneralManager ? 'dashboard' : 'objectives', isGeneralManager ? 'Monitor' : 'Objetivos');
     };
 
@@ -648,9 +696,19 @@ export default function App() {
   const ProjectFormView = () => {
     const obj = objectives.find(item => item.id === selectedObjectiveId);
     const [formData, setFormData] = useState({ name: '', description: '', dueDate: obj?.targetDate || '' });
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
       e.preventDefault();
-      setTasks(items => [...items, { id: Date.now(), objectiveId: selectedObjectiveId, name: formData.name, description: formData.description, status: 'En progreso', dueDate: formData.dueDate }]);
+      const { data, error } = await supabase.from('strategic_actions').insert({
+        objective_id: selectedObjectiveId,
+        name: formData.name,
+        description: formData.description,
+        due_date: formData.dueDate || null,
+      }).select().single();
+      if (error) {
+        setDataError('No se pudo registrar la acción estratégica. Inténtalo nuevamente.');
+        return;
+      }
+      setTasks(items => [...items, toAction(data)]);
       navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
     };
     return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Añadir acción estratégica</h1><p className="text-slate-500">Gerencia responsable · {obj?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required placeholder="Ej.: Implementar tablero de producción" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div><Input label="Fecha objetivo" type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button><Button type="submit">Registrar acción</Button></div></form></Card></div>;
@@ -665,10 +723,24 @@ export default function App() {
     const obj = objectives.find(o => o.id === selectedObjectiveId);
     const [formData, setFormData] = useState({ name: '', resource: '', formula: '', target: '', unit: '%', comparator: '>=', frequency: 'Mensual', ownerId: '' });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
       e.preventDefault();
-      const newInd = { id: Date.now(), objectiveId: selectedObjectiveId, ...formData, target: parseFloat(formData.target), status: 'Sin reporte', approvalStatus: 'Pendiente de aprobación' };
-      setIndicators([...indicators, newInd]);
+      const { data, error } = await supabase.from('indicators').insert({
+        objective_id: selectedObjectiveId,
+        name: formData.name,
+        resource: formData.resource,
+        formula: formData.formula,
+        target: parseFloat(formData.target),
+        unit: formData.unit,
+        comparator: formData.comparator,
+        frequency: formData.frequency,
+        owner_email: formData.ownerId || null,
+      }).select().single();
+      if (error) {
+        setDataError('No se pudo guardar el indicador. Inténtalo nuevamente.');
+        return;
+      }
+      setIndicators([...indicators, toIndicator(data)]);
       navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
     };
 
@@ -800,11 +872,29 @@ export default function App() {
     const registrationDateLabel = registrationDate.split('-').reverse().join('-');
     const formatPeriod = (value) => { const [year, month] = value.split('-'); const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']; return value ? `${months[Number(month) - 1]},${year}` : ''; };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
       e.preventDefault();
       const calcStatus = calculateIndicatorStatus(formData.result, ind.target, ind.comparator);
-      const newReport = { id: Date.now(), indicatorId: ind.id, period: formatPeriod(formData.period), date: registrationDate, registeredDate: registrationDateLabel, result: parseFloat(formData.result), obs: formData.obs, status: calcStatus };
-      setReports([...reports, newReport]);
+      const { data, error } = await supabase.from('indicator_reports').insert({
+        indicator_id: ind.id,
+        period: formatPeriod(formData.period),
+        result: parseFloat(formData.result),
+        status: calcStatus,
+        registered_date: registrationDate,
+        observations: formData.obs,
+        created_by: session.user.id,
+      }).select().single();
+      if (error) {
+        setDataError('No se pudo registrar el resultado. Inténtalo nuevamente.');
+        return;
+      }
+      const { error: indicatorError } = await supabase.from('indicators').update({ status: calcStatus, updated_at: new Date().toISOString() }).eq('id', ind.id);
+      if (indicatorError) {
+        setDataError('El resultado fue guardado, pero no se pudo actualizar el estado del indicador.');
+        await loadOperationalData();
+        return;
+      }
+      setReports([...reports, toReport(data)]);
       setIndicators(indicators.map(i => i.id === ind.id ? { ...i, status: calcStatus } : i));
       navigateTo('indicator-detail', ind.name, { indicatorId: ind.id });
     };
@@ -885,6 +975,7 @@ export default function App() {
            </div>
         </header>
         <div className="p-6 md:p-8 flex-1 relative z-0">
+          {dataError && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3"><span>{dataError}</span><button onClick={() => setDataError('')} className="font-semibold shrink-0">Cerrar</button></div>}
           {currentView === 'dashboard' && <MonitorView />}
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
