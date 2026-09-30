@@ -114,6 +114,19 @@ const Select = ({ label, options, className = "", ...props }) => (
   </div>
 );
 
+const SearchablePeopleSelect = ({ label, options, value, onChange, multiple = false, required = false }) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const selectedIds = multiple ? value : (value ? [value] : []);
+  const selected = options.filter(person => selectedIds.includes(person.id));
+  const filtered = options.filter(person => person.name.toLowerCase().includes(query.toLowerCase()));
+  const toggle = (id) => {
+    if (multiple) onChange(selectedIds.includes(id) ? selectedIds.filter(item => item !== id) : [...selectedIds, id]);
+    else { onChange(id); setOpen(false); setQuery(''); }
+  };
+  return <div className="flex flex-col gap-1.5 relative"><label className="text-sm font-medium text-slate-700">{label}{required ? ' *' : ''}</label><button type="button" onClick={() => setOpen(!open)} className="min-h-10 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-left flex items-center justify-between gap-3"><span className={selected.length ? 'text-slate-900' : 'text-slate-400'}>{multiple ? (selected.length ? `${selected.length} persona${selected.length > 1 ? 's' : ''} seleccionada${selected.length > 1 ? 's' : ''}` : 'Seleccionar personas...') : (selected[0]?.name || 'Seleccionar...')}</span><ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`} /></button>{multiple && selected.length > 0 && <div className="flex flex-wrap gap-1.5 mt-1">{selected.map(person => <span key={person.id} className="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">{person.name}</span>)}</div>}{open && <div className="absolute z-30 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg p-2"><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar persona..." className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" /><div className="max-h-48 overflow-y-auto mt-2">{filtered.length ? filtered.map(person => <button type="button" key={person.id} onClick={() => toggle(person.id)} className="w-full px-3 py-2 text-left rounded-md hover:bg-slate-50 flex items-center justify-between gap-3"><span><span className="block text-sm font-medium text-slate-800">{person.name}</span><span className="block text-xs text-slate-500">{ROLE_LABELS[person.role] || person.role}</span></span>{selectedIds.includes(person.id) && <CheckCircle2 className="w-4 h-4 text-[#1D4ED8]" />}</button>) : <p className="px-3 py-4 text-sm text-slate-500">No se encontraron personas.</p>}</div></div>}</div>;
+};
+
 const ProgressBar = ({ progress, status }) => {
   let color = 'bg-[#3B82F6]';
   if (status === 'Cumplido' || status === 'En meta') color = 'bg-green-500';
@@ -136,6 +149,7 @@ export default function App() {
   const [indicators, setIndicators] = useState(INITIAL_INDICATORS);
   const [reports, setReports] = useState(INITIAL_REPORTS);
   const [profiles, setProfiles] = useState([]);
+  const [organizationPeople, setOrganizationPeople] = useState([]);
   
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
@@ -152,30 +166,35 @@ export default function App() {
   const isResponsibleManager = selectedRole?.name === 'Gerente responsable';
   const isGcg = selectedRole?.name === 'GCG';
   const isSuperAdmin = assignedRole === 'super_admin';
-  const availableUsers = profiles.map(profile => ({
+  const availableUsers = [
+    ...organizationPeople.map(person => ({ id: person.id, name: person.full_name, role: person.role, avatar: person.full_name.slice(0, 2).toUpperCase() })),
+    ...profiles.filter(profile => !organizationPeople.some(person => person.email && person.email === profile.email)).map(profile => ({
     id: profile.email,
     name: profile.email,
     role: profile.role,
     avatar: profile.email.slice(0, 2).toUpperCase(),
-  }));
+    })),
+  ];
   const MOCK_USERS = availableUsers;
 
   const loadOperationalData = async () => {
     if (!supabase) return;
-    const [profilesResult, objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult] = await Promise.all([
+    const [profilesResult, peopleResult, objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult] = await Promise.all([
       supabase.from('profiles').select('email, role').order('email'),
+      supabase.from('organization_people').select('id, full_name, email, role').eq('active', true).order('full_name'),
       supabase.from('objectives').select('*').order('created_at', { ascending: false }),
       supabase.from('projects').select('*').order('created_at', { ascending: false }),
       supabase.from('strategic_actions').select('*').order('created_at', { ascending: false }),
       supabase.from('indicators').select('*').order('created_at', { ascending: false }),
       supabase.from('indicator_reports').select('*').order('registered_date', { ascending: true }),
     ]);
-    const firstError = [profilesResult, objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult].find(result => result.error)?.error;
+    const firstError = [profilesResult, peopleResult, objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult].find(result => result.error)?.error;
     if (firstError) {
       setDataError('La estructura de datos de Supabase aún no está disponible. Ejecuta la migración 002_operational_data.sql.');
       return;
     }
     setProfiles(profilesResult.data || []);
+    setOrganizationPeople(peopleResult.data || []);
     setObjectives((objectivesResult.data || []).map(toObjective));
     setProjects((projectsResult.data || []).map(toProject));
     setTasks((actionsResult.data || []).map(toAction));
@@ -532,12 +551,12 @@ export default function App() {
               <label className="text-sm font-medium text-slate-700">Descripción</label>
               <textarea className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] min-h-[100px] text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
             </div>
-            <Select label="Responsable principal *" required options={availableUsers.filter(user => user.role === 'gerente_responsable').map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
+            <SearchablePeopleSelect label="Responsable principal" required options={availableUsers.filter(user => user.role === 'gerente_responsable')} value={formData.ownerId} onChange={ownerId => setFormData({ ...formData, ownerId })} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                <Input label="Inicio de vigencia *" type="number" min="2020" max="2100" placeholder="2026" required value={formData.validityStartYear} onChange={e => setFormData({...formData, validityStartYear: e.target.value})} />
                <Input label="Fin de vigencia *" type="number" min="2020" max="2100" placeholder="2027" required value={formData.validityEndYear} onChange={e => setFormData({...formData, validityEndYear: e.target.value})} />
             </div>
-            <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Personas interesadas</label><select multiple value={formData.stakeholders} onChange={e => setFormData({...formData, stakeholders: Array.from(e.target.selectedOptions, option => option.value)})} className="min-h-32 px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm">{availableUsers.map(user => <option key={user.id} value={user.id}>{user.name} · {ROLE_LABELS[user.role]}</option>)}</select><p className="text-xs text-slate-500">Mantén presionada la tecla Ctrl o Cmd para seleccionar varias personas.</p></div>
+            <SearchablePeopleSelect label="Personas interesadas" multiple options={availableUsers} value={formData.stakeholders} onChange={stakeholders => setFormData({ ...formData, stakeholders })} />
             <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => navigateTo(isGeneralManager ? 'dashboard' : 'objectives', isGeneralManager ? 'Monitor' : 'Objetivos')}>Cancelar</Button>
               <Button type="submit">Crear objetivo</Button>
