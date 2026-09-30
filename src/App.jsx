@@ -14,41 +14,13 @@ const ROLE_LABELS = {
   super_admin: 'Super admin',
 };
 
-const MOCK_USERS = [
-  { id: 1, name: 'Carlos Mendoza', role: 'Gerente General', avatar: 'CM' },
-  { id: 2, name: 'Ana Silva', role: 'Gerente de Operaciones', avatar: 'AS' },
-  { id: 3, name: 'Luis Rojas', role: 'Jefe de Producción', avatar: 'LR' },
-];
-
-const INITIAL_OBJECTIVES = [
-  { id: 1, name: 'Incrementar la eficiencia operativa', description: 'Mejorar el desempeño operacional mediante reducción de tiempos improductivos y optimización de recursos.', category: 'Procesos Internos', ownerId: 2, progress: 78, status: 'En progreso', createdDate: '2026-01-01', targetDate: '2026-12-31' },
-  { id: 2, name: 'Mejorar la satisfacción del cliente', description: 'Aumentar el NPS y reducir el tiempo de respuesta a incidencias en un 30%.', category: 'Clientes', ownerId: 1, progress: 92, status: 'Cumplido', createdDate: '2026-01-01', targetDate: '2026-10-15' },
-  { id: 3, name: 'Fortalecer la transformación digital', description: 'Implementar el nuevo ERP y migrar el 80% de los procesos manuales a la nube.', category: 'Innovación', ownerId: 2, progress: 45, status: 'En riesgo', createdDate: '2026-01-01', targetDate: '2027-03-30' }
-];
-
-const INITIAL_PROJECTS = [
-  { id: 1, objectiveId: 1, name: 'Optimización de línea ensamblaje', status: 'En progreso', progress: 60, ownerId: 3, source: 'Creado en aplicación' },
-  { id: 2, objectiveId: 1, name: 'Mantenimiento preventivo 2.0', status: 'Completado', progress: 100, ownerId: 3, source: 'Jira' },
-  { id: 3, objectiveId: 2, name: 'Nuevo portal de soporte', status: 'En riesgo', progress: 30, ownerId: 1, source: 'Microsoft Planner' },
-];
-
-const INITIAL_TASKS = [
-  { id: 1, projectId: 1, name: 'Auditoría de tiempos', status: 'Completado', dueDate: '2026-08-15' },
-  { id: 2, projectId: 1, name: 'Compra de sensores IoT', status: 'En progreso', dueDate: '2026-10-01' },
-];
-
-const INITIAL_INDICATORS = [
-  { id: 1, objectiveId: 1, name: 'Cumplimiento del plan de producción', resource: 'Reportes diarios del sistema MES', formula: '(Unidades producidas / Unidades planificadas) × 100', target: 95, unit: '%', comparator: '>=', frequency: 'Mensual', ownerId: 3, status: 'Fuera de meta', approvalStatus: 'Aprobado' },
-  { id: 2, objectiveId: 1, name: 'Reducción de merma', resource: 'Reporte de calidad', formula: '(Kg merma / Kg total procesado) × 100', target: 5, unit: '%', comparator: '<=', frequency: 'Mensual', ownerId: 3, status: 'En meta', approvalStatus: 'Aprobado' }
-];
-
-const INITIAL_REPORTS = [
-  { id: 1, indicatorId: 1, period: 'Julio,2026', result: 94, status: 'Fuera de meta', date: '2026-07-31', obs: 'Retraso de materia prima.' },
-  { id: 2, indicatorId: 1, period: 'Agosto,2026', result: 97, status: 'En meta', date: '2026-08-31', obs: 'Operación normal.' },
-  { id: 3, indicatorId: 1, period: 'Septiembre,2026', result: 92, status: 'Fuera de meta', date: '2026-09-30', obs: 'Paradas no programadas en semana 2.' },
-  { id: 4, indicatorId: 2, period: 'Agosto,2026', result: 4.2, status: 'En meta', date: '2026-08-31', obs: '' },
-  { id: 5, indicatorId: 2, period: 'Septiembre,2026', result: 4.8, status: 'En meta', date: '2026-09-30', obs: '' },
-];
+// La aplicación inicia sin datos operativos. Los usuarios registrados crean los
+// objetivos, acciones, indicadores y reportes reales desde Bionexora.
+const INITIAL_OBJECTIVES = [];
+const INITIAL_PROJECTS = [];
+const INITIAL_TASKS = [];
+const INITIAL_INDICATORS = [];
+const INITIAL_REPORTS = [];
 
 const calculateIndicatorStatus = (result, target, comparator) => {
   const res = parseFloat(result);
@@ -171,6 +143,12 @@ export default function App() {
   const isResponsibleManager = selectedRole?.name === 'Gerente responsable';
   const isGcg = selectedRole?.name === 'GCG';
   const isSuperAdmin = assignedRole === 'super_admin';
+  const availableUsers = session?.user ? [{
+    id: session.user.email,
+    name: session.user.user_metadata?.full_name || session.user.email,
+    avatar: (session.user.user_metadata?.full_name || session.user.email).split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase(),
+  }] : [];
+  const MOCK_USERS = availableUsers;
 
   useEffect(() => {
     if (!supabase) {
@@ -281,7 +259,7 @@ export default function App() {
   const MonitorView = () => {
     const fulfilled = objectives.filter(o => o.status === 'Cumplido').length;
     const atRisk = objectives.filter(o => o.status === 'En riesgo').length;
-    const averageProgress = Math.round(objectives.reduce((total, objective) => total + objective.progress, 0) / objectives.length);
+    const averageProgress = objectives.length ? Math.round(objectives.reduce((total, objective) => total + objective.progress, 0) / objectives.length) : 0;
     const chartData = objectives.map(objective => ({ name: objective.name, avance: objective.progress }));
     const distribution = [
       { name: 'Cumplidos', value: fulfilled, color: '#16a34a' },
@@ -341,7 +319,7 @@ export default function App() {
       <div className="space-y-8 fade-in">
         <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">Buenos días, Carlos</h1>
+            <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">Buenos días, {session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'usuario'}</h1>
             <p className="text-slate-500 mt-1">Aquí está el resumen estratégico de tu organización.</p>
           </div>
           {isGeneralManager && <Button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="hidden sm:flex">
@@ -399,7 +377,7 @@ export default function App() {
             
             <div className="grid gap-4">
               {objectives.map(obj => {
-                const owner = MOCK_USERS.find(u => u.id === obj.ownerId);
+                const owner = availableUsers.find(u => u.id === obj.ownerId);
                 const objProjects = projects.filter(p => p.objectiveId === obj.id);
                 const objIndicators = indicators.filter(i => i.objectiveId === obj.id);
                 
@@ -480,7 +458,7 @@ export default function App() {
 
     const handleSubmit = (e) => {
       e.preventDefault();
-      const newObj = { id: Date.now(), ...formData, createdDate: new Date().toISOString().split('T')[0], stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean), ownerId: parseInt(formData.ownerId), progress: 0, status: 'No iniciado' };
+      const newObj = { id: Date.now(), ...formData, createdDate: new Date().toISOString().split('T')[0], stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean), progress: 0, status: 'No iniciado' };
       setObjectives([...objectives, newObj]);
       navigateTo(isGeneralManager ? 'dashboard' : 'objectives', isGeneralManager ? 'Monitor' : 'Objetivos');
     };
@@ -500,7 +478,7 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Select label="Perspectiva *" required options={['Financiera', 'Clientes', 'Procesos Internos', 'Aprendizaje y Crecimiento', 'Innovación']} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
-              <Select label="Responsable principal *" required options={MOCK_USERS.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
+              <Select label="Responsable principal *" required options={availableUsers.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                <Input label="Fecha objetivo *" type="date" required value={formData.targetDate} onChange={e => setFormData({...formData, targetDate: e.target.value})} />
@@ -519,7 +497,7 @@ export default function App() {
   const ObjectiveDetailView = () => {
     const obj = objectives.find(o => o.id === selectedObjectiveId);
     if (!obj) return null;
-    const owner = MOCK_USERS.find(u => u.id === obj.ownerId);
+    const owner = availableUsers.find(u => u.id === obj.ownerId);
     const objProjects = projects.filter(p => p.objectiveId === obj.id);
     const objActions = tasks.filter(task => task.objectiveId === obj.id);
     const objIndicators = indicators.filter(i => i.objectiveId === obj.id);
@@ -723,7 +701,7 @@ export default function App() {
             <h3 className="text-sm font-bold text-[#1D4ED8] uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">3. Gestión</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Select label="Plazo *" required options={['Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual']} value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} />
-              <Select label="Responsable del reporte *" required options={MOCK_USERS.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
+              <Select label="Responsable del reporte *" required options={availableUsers.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
             </div>
           </Card>
           <div className="flex justify-end gap-3 pt-2">
