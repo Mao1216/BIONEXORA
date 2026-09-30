@@ -218,7 +218,7 @@ export default function App() {
     setAuthError('');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: window.location.origin, scopes: 'email' },
     });
     if (error) setAuthError(error.message);
   };
