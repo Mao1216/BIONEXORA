@@ -127,6 +127,15 @@ const SearchablePeopleSelect = ({ label, options, value, onChange, multiple = fa
   return <div className="flex flex-col gap-1.5 relative"><label className="text-sm font-medium text-slate-700">{label}{required ? ' *' : ''}</label><button type="button" onClick={() => setOpen(!open)} className="min-h-10 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-left flex items-center justify-between gap-3"><span className={selected.length ? 'text-slate-900' : 'text-slate-400'}>{multiple ? (selected.length ? `${selected.length} persona${selected.length > 1 ? 's' : ''} seleccionada${selected.length > 1 ? 's' : ''}` : 'Seleccionar personas...') : (selected[0]?.name || 'Seleccionar...')}</span><ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`} /></button>{multiple && selected.length > 0 && <div className="flex flex-wrap gap-1.5 mt-1">{selected.map(person => <span key={person.id} className="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">{person.name}</span>)}</div>}{open && <div className="absolute z-30 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg p-2"><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar persona..." className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6]" /><div className="max-h-48 overflow-y-auto mt-2">{filtered.length ? filtered.map(person => <button type="button" key={person.id} onClick={() => toggle(person.id)} className="w-full px-3 py-2 text-left rounded-md hover:bg-slate-50 flex items-center justify-between gap-3"><span><span className="block text-sm font-medium text-slate-800">{person.name}</span><span className="block text-xs text-slate-500">{ROLE_LABELS[person.role] || person.role}</span></span>{selectedIds.includes(person.id) && <CheckCircle2 className="w-4 h-4 text-[#1D4ED8]" />}</button>) : <p className="px-3 py-4 text-sm text-slate-500">No se encontraron personas.</p>}</div></div>}</div>;
 };
 
+const monthOrder = { enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5, julio: 6, agosto: 7, septiembre: 8, setiembre: 8, octubre: 9, noviembre: 10, diciembre: 11 };
+const reportPeriodTime = (report) => {
+  const [month = '', year = '0'] = String(report.period || '').toLowerCase().replace(',', ' ').trim().split(/\s+/);
+  const monthIndex = monthOrder[month];
+  if (Number.isInteger(monthIndex) && /^\d{4}$/.test(year)) return new Date(Number(year), monthIndex, 1).getTime();
+  return new Date(report.date || report.registered_date || 0).getTime();
+};
+const sortReportsByPeriod = (items, direction = 'asc') => [...items].sort((a, b) => direction === 'asc' ? reportPeriodTime(a) - reportPeriodTime(b) : reportPeriodTime(b) - reportPeriodTime(a));
+
 const ProgressBar = ({ progress, status }) => {
   let color = 'bg-[#3B82F6]';
   if (status === 'Cumplido' || status === 'En meta') color = 'bg-green-500';
@@ -162,6 +171,11 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [dataError, setDataError] = useState('');
+  const [notification, setNotification] = useState(null);
+  const notify = (message, type = 'success') => {
+    setNotification({ message, type, id: Date.now() });
+    window.setTimeout(() => setNotification(current => current?.message === message ? null : current), 3800);
+  };
   const isGeneralManager = selectedRole?.name === 'Gerente general';
   const isResponsibleManager = selectedRole?.name === 'Gerente responsable';
   const isGcg = selectedRole?.name === 'GCG';
@@ -392,6 +406,7 @@ export default function App() {
       return;
     }
     setIndicators(items => items.map(item => item.id === indicatorId ? { ...item, approvalStatus } : item));
+    notify(decision === 'approve' ? 'Indicador aprobado correctamente.' : 'Indicador rechazado y enviado a reformulación.', decision === 'approve' ? 'success' : 'warning');
   };
 
   const ObjectivesView = () => {
@@ -515,7 +530,7 @@ export default function App() {
                 {riskInds.length > 0 ? (
                   riskInds.map(ind => {
                     const obj = objectives.find(o => o.id === ind.objectiveId);
-                    const latestReport = reports.filter(r => r.indicatorId === ind.id).sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+                    const latestReport = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id), 'desc')[0];
                     return (
                       <div key={ind.id} className="p-4 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigateTo('indicator-detail', ind.name, { indicatorId: ind.id, objectiveId: obj.id })}>
                         <p className="text-xs text-slate-500 mb-1 truncate">{obj?.name}</p>
@@ -558,6 +573,7 @@ export default function App() {
         return;
       }
       setObjectives([toObjective(data), ...objectives]);
+      notify('Objetivo estratégico creado correctamente.');
       navigateTo(isGeneralManager ? 'dashboard' : 'objectives', isGeneralManager ? 'Monitor' : 'Objetivos');
     };
 
@@ -656,7 +672,7 @@ export default function App() {
                  {objIndicators.length === 0 ? <p className="text-sm text-slate-500 italic">No hay indicadores definidos.</p> : (
                    <div className="space-y-3">
                      {objIndicators.map(ind => {
-                        const latest = reports.filter(r => r.indicatorId === ind.id).sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+                        const latest = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id), 'desc')[0];
                         return (
                           <div key={ind.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
                             <div><p className="text-sm font-medium text-slate-800">{ind.name}</p><p className="text-xs text-slate-500 mt-0.5">Meta: {ind.comparator} {ind.target} {ind.unit}</p></div>
@@ -715,7 +731,7 @@ export default function App() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {objIndicators.map(ind => {
-                    const latest = reports.filter(r => r.indicatorId === ind.id).sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+                    const latest = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id), 'desc')[0];
                     return (
                       <Card key={ind.id} className="p-5 flex flex-col h-full" onClick={() => navigateTo('indicator-detail', ind.name, { indicatorId: ind.id, objectiveId: obj.id })}>
                         <div className="flex justify-between items-start mb-4">
@@ -755,6 +771,7 @@ export default function App() {
         return;
       }
       setTasks(items => [...items, toAction(data)]);
+      notify('Acción estratégica registrada correctamente.');
       navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
     };
     return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Añadir acción estratégica</h1><p className="text-slate-500">Gerencia responsable · {obj?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required placeholder="Ej.: Implementar tablero de producción" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div><Select label="Responsable *" required options={availableUsers.map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} /><Input label="Fecha programada de ejecución" type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button><Button type="submit">Registrar acción</Button></div></form></Card></div>;
@@ -775,6 +792,7 @@ export default function App() {
       const { data, error } = await supabase.from('strategic_actions').update({ name: formData.name, description: formData.description, due_date: formData.dueDate || null, owner_email: formData.ownerId || null, updated_at: new Date().toISOString() }).eq('id', action.id).select().single();
       if (error) { setDataError('No se pudo actualizar la acción estratégica. Inténtalo nuevamente.'); return; }
       setTasks(items => items.map(item => item.id === action.id ? toAction(data) : item));
+      notify('Acción estratégica actualizada correctamente.');
       navigateTo('objective-detail', objective?.name || 'Objetivo', { objectiveId: action.objectiveId });
     };
     return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Editar acción estratégica</h1><p className="text-slate-500">{objective?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required value={formData.name} onChange={event => setFormData({ ...formData, name: event.target.value })} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={event => setFormData({ ...formData, description: event.target.value })} /></div><Select label="Responsable *" required options={availableUsers.map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={event => setFormData({ ...formData, ownerId: event.target.value })} /><Input label="Fecha programada de ejecución" type="date" value={formData.dueDate} onChange={event => setFormData({ ...formData, dueDate: event.target.value })} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', objective?.name || 'Objetivo', { objectiveId: action.objectiveId })}>Cancelar</Button><Button type="submit">Guardar cambios</Button></div></form></Card></div>;
@@ -792,6 +810,7 @@ export default function App() {
       const { data, error } = await supabase.from('indicators').update({ target: Number(target), comparator, approval_status: 'Pendiente de aprobación', updated_at: new Date().toISOString() }).eq('id', indicator.id).select().single();
       if (error) { setDataError('No se pudo actualizar la meta del indicador.'); return; }
       setIndicators(items => items.map(item => item.id === indicator.id ? toIndicator(data) : item));
+      notify('Meta actualizada y enviada a revisión de GCG.');
       navigateTo('indicator-detail', indicator.name, { indicatorId: indicator.id });
     };
     return <div className="max-w-xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Editar meta del indicador</h1><p className="text-slate-500">Al guardar, el indicador volverá a la aprobación de GCG.</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Select label="Comparador *" required options={[{ value: '>=', label: 'Mayor o igual (>=)' }, { value: '>', label: 'Mayor (>)' }, { value: '<=', label: 'Menor o igual (<=)' }, { value: '<', label: 'Menor (<)' }, { value: '=', label: 'Igual (=)' }]} value={comparator} onChange={event => setComparator(event.target.value)} /><Input label={`Nueva meta (${indicator.unit}) *`} type="number" step="0.01" required value={target} onChange={event => setTarget(event.target.value)} /><div className="flex justify-end gap-3 pt-3"><Button type="button" variant="ghost" onClick={() => navigateTo('indicator-detail', indicator.name, { indicatorId: indicator.id })}>Cancelar</Button><Button type="submit">Enviar a aprobación</Button></div></form></Card></div>;
@@ -807,7 +826,7 @@ export default function App() {
     const indicator = indicators.find(item => item.id === selectedIndicatorId);
     const [formData, setFormData] = useState(() => indicator ? ({ name: indicator.name, resource: indicator.resource || '', formula: indicator.formula || '', target: indicator.target, unit: indicator.unit, comparator: indicator.comparator, frequency: indicator.frequency, reviewFrequency: indicator.reviewFrequency || indicator.frequency, ownerId: indicator.ownerId || '' }) : null);
     if (!indicator || !formData) return <div className="text-center text-slate-500 py-12">No se encontró el indicador.</div>;
-    const handleSubmit = async (event) => { event.preventDefault(); const { data, error } = await supabase.from('indicators').update({ name: formData.name, resource: formData.resource, formula: formData.formula, target: Number(formData.target), unit: formData.unit, comparator: formData.comparator, frequency: formData.frequency, review_frequency: formData.reviewFrequency, owner_email: formData.ownerId || null, approval_status: 'Pendiente de aprobación', updated_at: new Date().toISOString() }).eq('id', indicator.id).select().single(); if (error) { setDataError('No se pudo actualizar el indicador.'); return; } setIndicators(items => items.map(item => item.id === indicator.id ? toIndicator(data) : item)); navigateTo('indicator-status', 'Estatus IND'); };
+    const handleSubmit = async (event) => { event.preventDefault(); const { data, error } = await supabase.from('indicators').update({ name: formData.name, resource: formData.resource, formula: formData.formula, target: Number(formData.target), unit: formData.unit, comparator: formData.comparator, frequency: formData.frequency, review_frequency: formData.reviewFrequency, owner_email: formData.ownerId || null, approval_status: 'Pendiente de aprobación', updated_at: new Date().toISOString() }).eq('id', indicator.id).select().single(); if (error) { setDataError('No se pudo actualizar el indicador.'); return; } setIndicators(items => items.map(item => item.id === indicator.id ? toIndicator(data) : item)); notify('Indicador actualizado y enviado a revisión de GCG.'); navigateTo('indicator-status', 'Estatus IND'); };
     return <div className="max-w-3xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Editar indicador</h1><p className="text-slate-500 mt-1">Al guardar, el indicador volverá a revisión de GCG.</p></div><form onSubmit={handleSubmit} className="space-y-5"><Card className="p-6"><div className="space-y-4"><Input label="Nombre del indicador *" required value={formData.name} onChange={event => setFormData({ ...formData, name: event.target.value })} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Recursos</label><textarea rows={2} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.resource} onChange={event => setFormData({ ...formData, resource: event.target.value })} /></div><Input label="Fórmula" value={formData.formula} onChange={event => setFormData({ ...formData, formula: event.target.value })} /><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><Select label="Comparador *" required options={[{ value: '>=', label: 'Mayor o igual (>=)' }, { value: '>', label: 'Mayor (>)' }, { value: '<=', label: 'Menor o igual (<=)' }, { value: '<', label: 'Menor (<)' }, { value: '=', label: 'Igual (=)' }]} value={formData.comparator} onChange={event => setFormData({ ...formData, comparator: event.target.value })} /><Input label="Meta *" type="number" step="0.01" required value={formData.target} onChange={event => setFormData({ ...formData, target: event.target.value })} /><Select label="Unidad *" required options={['%', 'Número', 'Soles', 'Dólares', 'Horas', 'Días', 'Ratio']} value={formData.unit} onChange={event => setFormData({ ...formData, unit: event.target.value })} /></div><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><Select label="Plazo *" required options={['Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual']} value={formData.frequency} onChange={event => setFormData({ ...formData, frequency: event.target.value })} /><Select label="Frecuencia de revisión *" required options={['Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual']} value={formData.reviewFrequency} onChange={event => setFormData({ ...formData, reviewFrequency: event.target.value })} /><Select label="Responsable del reporte *" required options={availableUsers.map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={event => setFormData({ ...formData, ownerId: event.target.value })} /></div></div></Card><div className="flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('indicator-status', 'Estatus IND')}>Cancelar</Button><Button type="submit">Enviar a revisión</Button></div></form></div>;
   };
 
@@ -834,6 +853,7 @@ export default function App() {
         return;
       }
       setIndicators([...indicators, toIndicator(data)]);
+      notify('Indicador creado y enviado a revisión de GCG.');
       navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
     };
 
@@ -883,7 +903,7 @@ export default function App() {
     const ind = indicators.find(i => i.id === selectedIndicatorId);
     const obj = objectives.find(o => o.id === ind?.objectiveId);
     if (!ind) return null;
-    const indReports = reports.filter(r => r.indicatorId === ind.id).sort((a,b) => new Date(a.date) - new Date(b.date));
+    const indReports = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id));
     const latestReport = indReports[indReports.length - 1];
     const chartData = indReports.map(r => ({ name: r.period.split(' ')[0], Resultado: parseFloat(r.result), Meta: ind.target }));
     const isApproved = ind.approvalStatus === 'Aprobado';
@@ -990,6 +1010,7 @@ export default function App() {
       }
       setReports([...reports, toReport(data)]);
       setIndicators(indicators.map(i => i.id === ind.id ? { ...i, status: calcStatus } : i));
+      notify(`Resultado registrado: indicador ${calcStatus.toLowerCase()}.`, calcStatus === 'En meta' ? 'success' : 'warning');
       navigateTo('indicator-detail', ind.name, { indicatorId: ind.id });
     };
 
@@ -1087,6 +1108,7 @@ export default function App() {
           {currentView === 'report-indicator' && <ReportFormView />}
         </div>
       </main>
+      {notification && <div role="status" className={`fixed right-5 top-5 z-[100] flex max-w-sm items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg fade-in ${notification.type === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-white text-slate-800'}`}><div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notification.type === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{notification.type === 'warning' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}</div><span>{notification.message}</span><button onClick={() => setNotification(null)} aria-label="Cerrar notificación" className="ml-1 text-slate-400 hover:text-slate-700">×</button></div>}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50">
         <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#D71920]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Monitor</span></button>
         {isGeneralManager ? <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Objetivo</span></button> : <button onClick={() => navigateTo('objectives', 'Objetivos')} className="flex flex-col items-center gap-1 text-slate-500"><Target className="w-5 h-5" /><span className="text-[10px] font-medium">Objetivos</span></button>}
