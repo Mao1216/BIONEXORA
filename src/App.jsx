@@ -621,7 +621,7 @@ export default function App() {
               <div><p className="text-xs text-slate-400 mb-1">Proyectos activos</p><p className="text-sm font-medium text-slate-900">{objProjects.length}</p></div>
               <div><p className="text-xs text-slate-400 mb-1">Indicadores medidos</p><p className="text-sm font-medium text-slate-900">{objIndicators.length}</p></div>
             </div>
-            <div className="pt-4 border-t border-slate-100"><p className="text-xs text-slate-400 mb-2">Personas interesadas</p>{obj.stakeholders?.length ? <div className="flex flex-wrap gap-2">{obj.stakeholders.map(person => <span key={person} className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{person}</span>)}</div> : <p className="text-sm text-slate-500">Aún no se han agregado personas interesadas.</p>}</div>
+            <div className="pt-4 border-t border-slate-100"><p className="text-xs text-slate-400 mb-2">Personas interesadas</p>{obj.stakeholders?.length ? <div className="flex flex-wrap gap-2">{obj.stakeholders.map(personId => { const person = availableUsers.find(user => user.id === personId); return <span key={personId} className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{person?.name || 'Persona registrada'}</span> })}</div> : <p className="text-sm text-slate-500">Aún no se han agregado personas interesadas.</p>}</div>
           </div>
         </div>
 
