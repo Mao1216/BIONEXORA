@@ -14,10 +14,10 @@ const ROLE_LABELS = {
   super_admin: 'Super admin',
 };
 
-const toObjective = (row) => ({ ...row, ownerId: row.owner_email, createdDate: row.created_date, targetDate: row.target_date });
+const toObjective = (row) => ({ ...row, ownerId: row.owner_email, createdDate: row.created_date, targetDate: row.target_date, validityStartYear: row.validity_start_year, validityEndYear: row.validity_end_year });
 const toProject = (row) => ({ ...row, objectiveId: row.objective_id, ownerId: row.owner_email });
-const toAction = (row) => ({ ...row, objectiveId: row.objective_id, projectId: row.project_id, dueDate: row.due_date });
-const toIndicator = (row) => ({ ...row, objectiveId: row.objective_id, ownerId: row.owner_email, approvalStatus: row.approval_status, target: Number(row.target) });
+const toAction = (row) => ({ ...row, objectiveId: row.objective_id, projectId: row.project_id, dueDate: row.due_date, ownerId: row.owner_email });
+const toIndicator = (row) => ({ ...row, objectiveId: row.objective_id, ownerId: row.owner_email, approvalStatus: row.approval_status, reviewFrequency: row.review_frequency, target: Number(row.target) });
 const toReport = (row) => ({ ...row, indicatorId: row.indicator_id, date: row.registered_date, result: Number(row.result), obs: row.observations });
 
 // La aplicación inicia sin datos operativos. Los usuarios registrados crean los
@@ -135,9 +135,11 @@ export default function App() {
   const [tasks, setTasks] = useState(INITIAL_TASKS);
   const [indicators, setIndicators] = useState(INITIAL_INDICATORS);
   const [reports, setReports] = useState(INITIAL_REPORTS);
+  const [profiles, setProfiles] = useState([]);
   
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
+  const [selectedActionId, setSelectedActionId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState(null);
   const [generalObjectiveFilter, setGeneralObjectiveFilter] = useState('Todos');
   const [selectedRole, setSelectedRole] = useState(null);
@@ -150,27 +152,30 @@ export default function App() {
   const isResponsibleManager = selectedRole?.name === 'Gerente responsable';
   const isGcg = selectedRole?.name === 'GCG';
   const isSuperAdmin = assignedRole === 'super_admin';
-  const availableUsers = session?.user ? [{
-    id: session.user.email,
-    name: session.user.user_metadata?.full_name || session.user.email,
-    avatar: (session.user.user_metadata?.full_name || session.user.email).split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase(),
-  }] : [];
+  const availableUsers = profiles.map(profile => ({
+    id: profile.email,
+    name: profile.email,
+    role: profile.role,
+    avatar: profile.email.slice(0, 2).toUpperCase(),
+  }));
   const MOCK_USERS = availableUsers;
 
   const loadOperationalData = async () => {
     if (!supabase) return;
-    const [objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult] = await Promise.all([
+    const [profilesResult, objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult] = await Promise.all([
+      supabase.from('profiles').select('email, role').order('email'),
       supabase.from('objectives').select('*').order('created_at', { ascending: false }),
       supabase.from('projects').select('*').order('created_at', { ascending: false }),
       supabase.from('strategic_actions').select('*').order('created_at', { ascending: false }),
       supabase.from('indicators').select('*').order('created_at', { ascending: false }),
       supabase.from('indicator_reports').select('*').order('registered_date', { ascending: true }),
     ]);
-    const firstError = [objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult].find(result => result.error)?.error;
+    const firstError = [profilesResult, objectivesResult, projectsResult, actionsResult, indicatorsResult, reportsResult].find(result => result.error)?.error;
     if (firstError) {
       setDataError('La estructura de datos de Supabase aún no está disponible. Ejecuta la migración 002_operational_data.sql.');
       return;
     }
+    setProfiles(profilesResult.data || []);
     setObjectives((objectivesResult.data || []).map(toObjective));
     setProjects((projectsResult.data || []).map(toProject));
     setTasks((actionsResult.data || []).map(toAction));
@@ -260,10 +265,11 @@ export default function App() {
   };
 
   const navigateTo = (view, name, params = {}) => {
-    if ((view === 'new-objective' && !isGeneralManager) || (['new-project', 'new-indicator', 'report-indicator'].includes(view) && !isResponsibleManager) || (view === 'gcg-review' && !isGcg)) return;
+    if ((view === 'new-objective' && !isGeneralManager) || (['new-project', 'edit-action', 'new-indicator', 'report-indicator'].includes(view) && !isResponsibleManager) || (view === 'gcg-review' && !isGcg)) return;
     setCurrentView(view);
     if (params.objectiveId) setSelectedObjectiveId(params.objectiveId);
     if (params.indicatorId) setSelectedIndicatorId(params.indicatorId);
+    if (params.actionId) setSelectedActionId(params.actionId);
     if (['dashboard', 'objectives', 'gcg-review', 'settings'].includes(view)) {
       setNavHistory([{ id: view, name }]);
     } else {
@@ -279,6 +285,7 @@ export default function App() {
     setCurrentView(destination.id);
     if (destination.objectiveId) setSelectedObjectiveId(destination.objectiveId);
     if (destination.indicatorId) setSelectedIndicatorId(destination.indicatorId);
+    if (destination.actionId) setSelectedActionId(destination.actionId);
     setNavHistory(navHistory.slice(0, index + 1));
   };
 
@@ -318,11 +325,11 @@ export default function App() {
           <div className="bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-2 text-sm font-medium text-slate-600 shadow-sm"><Calendar className="w-4 h-4 text-[#D71920]" /> Periodo: 2026</div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${isGeneralManager ? 'xl:grid-cols-2' : 'xl:grid-cols-4'} gap-4`}>
           <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Avance estratégico</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{averageProgress}%</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><p className="text-xs text-slate-500 mt-3">Promedio de objetivos activos</p></Card>
           <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Objetivos activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{objectives.length}</h3><Target className="w-6 h-6 text-blue-600" /></div><p className="text-xs text-slate-500 mt-3">En seguimiento este periodo</p></Card>
-          <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">Objetivos cumplidos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{fulfilled}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">Resultados logrados</p></Card>
-          <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Alertas de riesgo</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{atRisk}</h3><AlertCircle className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-amber-700 mt-3">Requieren atención</p></Card>
+          {!isGeneralManager && <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">Objetivos cumplidos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{fulfilled}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">Resultados logrados</p></Card>}
+          {!isGeneralManager && <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Alertas de riesgo</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{atRisk}</h3><AlertCircle className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-amber-700 mt-3">Requieren atención</p></Card>}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -490,17 +497,18 @@ export default function App() {
   };
 
   const ObjectiveFormView = () => {
-    const [formData, setFormData] = useState({ name: '', description: '', category: '', ownerId: '', targetDate: '', stakeholders: '' });
+    const [formData, setFormData] = useState({ name: '', description: '', ownerId: '', validityStartYear: '', validityEndYear: '', stakeholders: [] });
 
     const handleSubmit = async (e) => {
       e.preventDefault();
       const { data, error } = await supabase.from('objectives').insert({
         name: formData.name,
         description: formData.description,
-        category: formData.category,
         owner_email: formData.ownerId || null,
-        target_date: formData.targetDate,
-        stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean),
+        target_date: `${formData.validityEndYear}-12-31`,
+        validity_start_year: Number(formData.validityStartYear),
+        validity_end_year: Number(formData.validityEndYear),
+        stakeholders: formData.stakeholders,
         created_by: session.user.id,
       }).select().single();
       if (error) {
@@ -524,14 +532,12 @@ export default function App() {
               <label className="text-sm font-medium text-slate-700">Descripción</label>
               <textarea className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] min-h-[100px] text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
             </div>
+            <Select label="Responsable principal *" required options={availableUsers.filter(user => user.role === 'gerente_responsable').map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <Select label="Perspectiva *" required options={['Financiera', 'Clientes', 'Procesos Internos', 'Aprendizaje y Crecimiento', 'Innovación']} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
-              <Select label="Responsable principal *" required options={availableUsers.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
+               <Input label="Inicio de vigencia *" type="number" min="2020" max="2100" placeholder="2026" required value={formData.validityStartYear} onChange={e => setFormData({...formData, validityStartYear: e.target.value})} />
+               <Input label="Fin de vigencia *" type="number" min="2020" max="2100" placeholder="2027" required value={formData.validityEndYear} onChange={e => setFormData({...formData, validityEndYear: e.target.value})} />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-               <Input label="Fecha objetivo *" type="date" required value={formData.targetDate} onChange={e => setFormData({...formData, targetDate: e.target.value})} />
-            </div>
-            <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Personas interesadas</label><textarea rows={2} placeholder="Ej.: Finanzas, Operaciones, Calidad (separar por comas)" className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm" value={formData.stakeholders} onChange={e => setFormData({...formData, stakeholders: e.target.value})} /><p className="text-xs text-slate-500">Agrega las áreas o personas que deben ser informadas del objetivo.</p></div>
+            <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Personas interesadas</label><select multiple value={formData.stakeholders} onChange={e => setFormData({...formData, stakeholders: Array.from(e.target.selectedOptions, option => option.value)})} className="min-h-32 px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm">{availableUsers.map(user => <option key={user.id} value={user.id}>{user.name} · {ROLE_LABELS[user.role]}</option>)}</select><p className="text-xs text-slate-500">Mantén presionada la tecla Ctrl o Cmd para seleccionar varias personas.</p></div>
             <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => navigateTo(isGeneralManager ? 'dashboard' : 'objectives', isGeneralManager ? 'Monitor' : 'Objetivos')}>Cancelar</Button>
               <Button type="submit">Crear objetivo</Button>
@@ -558,10 +564,7 @@ export default function App() {
           <div className="relative z-10">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <Badge status={obj.status}>{obj.status}</Badge>
-                  <span className="text-sm font-medium text-[#14B8A6] uppercase tracking-wider">{obj.category}</span>
-                </div>
+                <div className="flex items-center gap-3 mb-2"><Badge status={obj.status}>{obj.status}</Badge></div>
                 <h1 className="text-2xl font-bold text-[#0F172A]">{obj.name}</h1>
                 <p className="text-slate-500 mt-1 max-w-3xl">{obj.description}</p>
               </div>
@@ -572,7 +575,7 @@ export default function App() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-slate-100">
               <div><p className="text-xs text-slate-400 mb-1">Responsable</p><div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-600">{owner?.avatar}</div><span className="text-sm font-medium text-slate-900">{owner?.name}</span></div></div>
-              <div><p className="text-xs text-slate-400 mb-1">Fecha objetivo</p><p className="text-sm font-medium text-slate-900 flex items-center gap-1"><Calendar className="w-4 h-4 text-slate-400" /> {obj.targetDate}</p></div>
+              <div><p className="text-xs text-slate-400 mb-1">Periodo de vigencia</p><p className="text-sm font-medium text-slate-900 flex items-center gap-1"><Calendar className="w-4 h-4 text-slate-400" /> {obj.validityStartYear} - {obj.validityEndYear}</p></div>
               <div><p className="text-xs text-slate-400 mb-1">Proyectos activos</p><p className="text-sm font-medium text-slate-900">{objProjects.length}</p></div>
               <div><p className="text-xs text-slate-400 mb-1">Indicadores medidos</p><p className="text-sm font-medium text-slate-900">{objIndicators.length}</p></div>
             </div>
@@ -655,7 +658,7 @@ export default function App() {
                   })}
                 </div>
               )}
-              <Card className="p-5"><h4 className="font-semibold text-slate-900 mb-3">Acciones estratégicas</h4>{objActions.length ? <div className="space-y-3">{objActions.map(action => <div key={action.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2"><div className="min-w-0"><p className="text-sm font-medium text-slate-900 break-words">{action.name}</p>{action.description && <p className="text-xs text-slate-500 mt-1">{action.description}</p>}</div><div className="text-xs text-slate-500 shrink-0">Meta: {action.dueDate || 'Sin fecha'}</div></div>)}</div> : <p className="text-sm text-slate-500">Aún no hay acciones estratégicas registradas.</p>}</Card>
+              <Card className="p-5"><h4 className="font-semibold text-slate-900 mb-3">Acciones estratégicas</h4>{objActions.length ? <div className="space-y-3">{objActions.map(action => <div key={action.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div className="min-w-0"><p className="text-sm font-medium text-slate-900 break-words">{action.name}</p>{action.description && <p className="text-xs text-slate-500 mt-1">{action.description}</p>}<p className="text-xs text-slate-500 mt-1">Responsable: {availableUsers.find(user => user.id === action.ownerId)?.name || 'Sin asignar'}</p></div><div className="flex items-center gap-3 shrink-0"><div className="text-xs text-slate-500">Ejecución: {action.dueDate || 'Sin fecha'}</div>{isResponsibleManager && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => navigateTo('edit-action', 'Editar acción estratégica', { objectiveId: obj.id, actionId: action.id })}>Editar</Button>}</div></div>)}</div> : <p className="text-sm text-slate-500">Aún no hay acciones estratégicas registradas.</p>}</Card>
             </div>
           )}
 
@@ -695,7 +698,7 @@ export default function App() {
 
   const ProjectFormView = () => {
     const obj = objectives.find(item => item.id === selectedObjectiveId);
-    const [formData, setFormData] = useState({ name: '', description: '', dueDate: obj?.targetDate || '' });
+    const [formData, setFormData] = useState({ name: '', description: '', dueDate: '', ownerId: '' });
     const handleSubmit = async (e) => {
       e.preventDefault();
       const { data, error } = await supabase.from('strategic_actions').insert({
@@ -703,6 +706,7 @@ export default function App() {
         name: formData.name,
         description: formData.description,
         due_date: formData.dueDate || null,
+        owner_email: formData.ownerId || null,
       }).select().single();
       if (error) {
         setDataError('No se pudo registrar la acción estratégica. Inténtalo nuevamente.');
@@ -711,7 +715,7 @@ export default function App() {
       setTasks(items => [...items, toAction(data)]);
       navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
     };
-    return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Añadir acción estratégica</h1><p className="text-slate-500">Gerencia responsable · {obj?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required placeholder="Ej.: Implementar tablero de producción" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div><Input label="Fecha objetivo" type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button><Button type="submit">Registrar acción</Button></div></form></Card></div>;
+    return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Añadir acción estratégica</h1><p className="text-slate-500">Gerencia responsable · {obj?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required placeholder="Ej.: Implementar tablero de producción" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div><Select label="Responsable *" required options={availableUsers.map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} /><Input label="Fecha programada de ejecución" type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button><Button type="submit">Registrar acción</Button></div></form></Card></div>;
   };
 
   const GcgReviewView = () => {
@@ -719,9 +723,24 @@ export default function App() {
     return <div className="fade-in space-y-6"><div><p className="text-sm font-semibold text-[#D71920] uppercase tracking-wider">GCG · Control de gestión</p><h1 className="text-2xl font-bold text-slate-900 mt-1">Revisión de indicadores</h1><p className="text-slate-500 mt-1">Aprueba indicadores listos para medición o devuélvelos a la gerencia responsable para reformulación.</p></div><Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex justify-between items-center"><h2 className="font-semibold text-slate-900">Bandeja de revisión</h2><span className="text-sm text-slate-500">{pending.length} pendientes</span></div>{pending.length === 0 ? <div className="p-10 text-center text-slate-500">No hay indicadores pendientes de revisión.</div> : <div className="divide-y divide-slate-100">{pending.map(indicator => { const objective = objectives.find(item => item.id === indicator.objectiveId); return <div key={indicator.id} className="p-5"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p className="font-semibold text-slate-900">{indicator.name}</p><p className="text-sm text-slate-500 mt-1">Objetivo: {objective?.name} · Meta: {indicator.comparator} {indicator.target} {indicator.unit}</p><p className="text-xs text-slate-500 mt-2">Frecuencia: {indicator.frequency} · Responsable: {MOCK_USERS.find(user => user.id === Number(indicator.ownerId))?.name || 'Sin asignar'}</p></div><div className="flex gap-2 shrink-0"><Button variant="secondary" onClick={() => reviewIndicator(indicator.id, 'reject')}>Rechazar y reformular</Button><Button onClick={() => reviewIndicator(indicator.id, 'approve')}><CheckCircle2 className="w-4 h-4" /> Aprobar</Button></div></div></div>})}</div>}</Card></div>;
   };
 
+  const EditActionView = () => {
+    const action = tasks.find(item => item.id === selectedActionId);
+    const objective = objectives.find(item => item.id === action?.objectiveId);
+    const [formData, setFormData] = useState({ name: action?.name || '', description: action?.description || '', dueDate: action?.dueDate || '', ownerId: action?.ownerId || '' });
+    if (!action) return <div className="text-center text-slate-500 py-12">No se encontró la acción estratégica.</div>;
+    const handleSubmit = async (event) => {
+      event.preventDefault();
+      const { data, error } = await supabase.from('strategic_actions').update({ name: formData.name, description: formData.description, due_date: formData.dueDate || null, owner_email: formData.ownerId || null, updated_at: new Date().toISOString() }).eq('id', action.id).select().single();
+      if (error) { setDataError('No se pudo actualizar la acción estratégica. Inténtalo nuevamente.'); return; }
+      setTasks(items => items.map(item => item.id === action.id ? toAction(data) : item));
+      navigateTo('objective-detail', objective?.name || 'Objetivo', { objectiveId: action.objectiveId });
+    };
+    return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Editar acción estratégica</h1><p className="text-slate-500">{objective?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required value={formData.name} onChange={event => setFormData({ ...formData, name: event.target.value })} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={event => setFormData({ ...formData, description: event.target.value })} /></div><Select label="Responsable *" required options={availableUsers.map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={event => setFormData({ ...formData, ownerId: event.target.value })} /><Input label="Fecha programada de ejecución" type="date" value={formData.dueDate} onChange={event => setFormData({ ...formData, dueDate: event.target.value })} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', objective?.name || 'Objetivo', { objectiveId: action.objectiveId })}>Cancelar</Button><Button type="submit">Guardar cambios</Button></div></form></Card></div>;
+  };
+
   const IndicatorFormView = () => {
     const obj = objectives.find(o => o.id === selectedObjectiveId);
-    const [formData, setFormData] = useState({ name: '', resource: '', formula: '', target: '', unit: '%', comparator: '>=', frequency: 'Mensual', ownerId: '' });
+    const [formData, setFormData] = useState({ name: '', resource: '', formula: '', target: '', unit: '%', comparator: '>=', frequency: 'Mensual', reviewFrequency: 'Mensual', ownerId: '' });
 
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -734,6 +753,7 @@ export default function App() {
         unit: formData.unit,
         comparator: formData.comparator,
         frequency: formData.frequency,
+        review_frequency: formData.reviewFrequency,
         owner_email: formData.ownerId || null,
       }).select().single();
       if (error) {
@@ -771,8 +791,9 @@ export default function App() {
           </Card>
           <Card className="p-6">
             <h3 className="text-sm font-bold text-[#1D4ED8] uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">3. Gestión</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <Select label="Plazo *" required options={['Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual']} value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} />
+              <Select label="Frecuencia de revisión *" required options={['Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual']} value={formData.reviewFrequency} onChange={e => setFormData({...formData, reviewFrequency: e.target.value})} />
               <Select label="Responsable del reporte *" required options={availableUsers.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
             </div>
           </Card>
@@ -981,6 +1002,7 @@ export default function App() {
           {currentView === 'new-objective' && <ObjectiveFormView />}
           {currentView === 'objective-detail' && <ObjectiveDetailView />}
           {currentView === 'new-project' && <ProjectFormView />}
+          {currentView === 'edit-action' && <EditActionView />}
           {currentView === 'new-indicator' && <IndicatorFormView />}
           {currentView === 'gcg-review' && <GcgReviewView />}
           {currentView === 'settings' && <SettingsView />}
