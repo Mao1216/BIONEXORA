@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, Target, FolderKanban, Settings, User, Plus, 
-  ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, BarChart3, Calendar, Users, Activity
+  ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, ArrowLeft, BarChart3, Calendar, Users, Activity
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import biomontLogo from './assets/biomont-logo.png';
@@ -153,6 +153,7 @@ export default function App() {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState(null);
+  const [generalObjectiveFilter, setGeneralObjectiveFilter] = useState('Todos');
   const [selectedRole, setSelectedRole] = useState(null);
   const isGeneralManager = selectedRole?.name === 'Gerente general';
   const isResponsibleManager = selectedRole?.name === 'Gerente responsable';
@@ -168,9 +169,21 @@ export default function App() {
     } else {
       let newHistory = [...navHistory];
       if (newHistory.length > 3) newHistory = [newHistory[0]];
-      newHistory.push({ id: view, name });
+      newHistory.push({ id: view, name, ...params });
       setNavHistory(newHistory);
     }
+  };
+
+  const restoreHistory = (index) => {
+    const destination = navHistory[index];
+    setCurrentView(destination.id);
+    if (destination.objectiveId) setSelectedObjectiveId(destination.objectiveId);
+    if (destination.indicatorId) setSelectedIndicatorId(destination.indicatorId);
+    setNavHistory(navHistory.slice(0, index + 1));
+  };
+
+  const goBack = () => {
+    if (navHistory.length > 1) restoreHistory(navHistory.length - 2);
   };
 
   const MonitorView = () => {
@@ -191,6 +204,8 @@ export default function App() {
       return objective.status === 'En riesgo' || objective.progress + 10 < expected;
     };
     const alerts = objectives.filter(isBehindSchedule).filter(objective => !portfolioFilter || objective.status === portfolioFilter);
+    const perspectives = ['Todos', ...new Set(objectives.map(objective => objective.category))];
+    const generalObjectives = objectives.filter(objective => generalObjectiveFilter === 'Todos' || objective.category === generalObjectiveFilter);
 
     return (
       <div className="space-y-6 fade-in">
@@ -211,11 +226,11 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div><button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button></div><div className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 12, right: 18, left: 12, bottom: 42 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="name" axisLine={false} tickLine={false} interval={0} angle={-18} textAnchor="end" height={72} tick={{ fill: '#475569', fontSize: 11 }} /><YAxis unit="%" width={48} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12 }} /><Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value}%`, 'Avance']} /><Bar dataKey="avance" fill="#D71920" radius={[6, 6, 0, 0]} barSize={42} /></BarChart></ResponsiveContainer></div></Card>
+          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div>{!isGeneralManager && <button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button>}</div><div className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 12, right: 18, left: 12, bottom: 42 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="name" axisLine={false} tickLine={false} interval={0} angle={-18} textAnchor="end" height={72} tick={{ fill: '#475569', fontSize: 11 }} /><YAxis unit="%" width={48} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12 }} /><Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value}%`, 'Avance']} /><Bar dataKey="avance" fill="#D71920" radius={[6, 6, 0, 0]} barSize={42} /></BarChart></ResponsiveContainer></div></Card>
           <Card className="p-6"><div className="flex items-start justify-between gap-2"><div><h2 className="text-lg font-bold text-slate-900">Estado del portafolio</h2><p className="text-sm text-slate-500">Haz clic en una categoría para filtrar las alertas.</p></div>{portfolioFilter && <button onClick={() => setPortfolioFilter(null)} className="text-xs font-semibold text-[#D71920]">Limpiar</button>}</div><div className="h-56 mt-2"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} paddingAngle={4} cursor="pointer" onClick={(entry) => setPortfolioFilter(portfolioFilter === entry.name ? null : entry.name)}>{distribution.map(item => <Cell key={item.name} fill={item.color} opacity={!portfolioFilter || portfolioFilter === item.name ? 1 : .35} />)}</Pie><Tooltip /><Legend iconType="circle" /></PieChart></ResponsiveContainer></div></Card>
         </div>
 
-        <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Alertas</h2><p className="text-sm text-slate-500">Objetivos con avance menor al esperado según el tiempo transcurrido.</p></div><Badge status={alerts.length ? 'En riesgo' : 'Cumplido'}>{alerts.length ? `${alerts.length} alertas` : 'Sin alertas'}</Badge></div><div className="divide-y divide-slate-100">{alerts.length ? alerts.map(objective => <button key={objective.id} onClick={() => navigateTo('objective-detail', objective.name, { objectiveId: objective.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1 min-w-0"><p className="font-semibold text-slate-900 break-words">{objective.name}</p><p className="text-sm text-slate-500 mt-0.5">Responsable: {MOCK_USERS.find(user => user.id === objective.ownerId)?.name}</p></div><div className="w-full sm:w-48 shrink-0"><div className="flex justify-between text-xs text-slate-500 mb-1"><span>Avance</span><span>{objective.progress}%</span></div><ProgressBar progress={objective.progress} status={objective.status} /></div><Badge status={objective.status}>{objective.status}</Badge></button>) : <p className="p-8 text-center text-sm text-slate-500">No hay objetivos con retraso respecto al tiempo registrado.</p>}</div></Card>
+        {isGeneralManager ? <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Objetivos</h2><p className="text-sm text-slate-500">Consulta el avance de los objetivos estratégicos.</p></div><select value={generalObjectiveFilter} onChange={event => setGeneralObjectiveFilter(event.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white"><option value="Todos">Todas las perspectivas</option>{perspectives.slice(1).map(item => <option key={item} value={item}>{item}</option>)}</select></div><div className="divide-y divide-slate-100">{generalObjectives.map(objective => <button key={objective.id} onClick={() => navigateTo('objective-detail', objective.name, { objectiveId: objective.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1 min-w-0"><p className="font-semibold text-slate-900 break-words">{objective.name}</p><p className="text-sm text-slate-500 mt-0.5">{objective.category} · Meta: {objective.targetDate}</p></div><div className="w-full sm:w-48 shrink-0"><div className="flex justify-between text-xs text-slate-500 mb-1"><span>Avance</span><span>{objective.progress}%</span></div><ProgressBar progress={objective.progress} status={objective.status} /></div></button>)}</div></Card> : <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Alertas</h2><p className="text-sm text-slate-500">Objetivos con avance menor al esperado según el tiempo transcurrido.</p></div><Badge status={alerts.length ? 'En riesgo' : 'Cumplido'}>{alerts.length ? `${alerts.length} alertas` : 'Sin alertas'}</Badge></div><div className="divide-y divide-slate-100">{alerts.length ? alerts.map(objective => <button key={objective.id} onClick={() => navigateTo('objective-detail', objective.name, { objectiveId: objective.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1 min-w-0"><p className="font-semibold text-slate-900 break-words">{objective.name}</p><p className="text-sm text-slate-500 mt-0.5">Responsable: {MOCK_USERS.find(user => user.id === objective.ownerId)?.name}</p></div><div className="w-full sm:w-48 shrink-0"><div className="flex justify-between text-xs text-slate-500 mb-1"><span>Avance</span><span>{objective.progress}%</span></div><ProgressBar progress={objective.progress} status={objective.status} /></div><Badge status={objective.status}>{objective.status}</Badge></button>) : <p className="p-8 text-center text-sm text-slate-500">No hay objetivos con retraso respecto al tiempo registrado.</p>}</div></Card>}
       </div>
     );
   };
@@ -375,7 +390,7 @@ export default function App() {
       e.preventDefault();
       const newObj = { id: Date.now(), ...formData, createdDate: new Date().toISOString().split('T')[0], stakeholders: formData.stakeholders.split(',').map(item => item.trim()).filter(Boolean), ownerId: parseInt(formData.ownerId), progress: 0, status: 'No iniciado' };
       setObjectives([...objectives, newObj]);
-      navigateTo('objectives', 'Objetivos');
+      navigateTo(isGeneralManager ? 'dashboard' : 'objectives', isGeneralManager ? 'Monitor' : 'Objetivos');
     };
 
     return (
@@ -400,7 +415,7 @@ export default function App() {
             </div>
             <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Personas interesadas</label><textarea rows={2} placeholder="Ej.: Finanzas, Operaciones, Calidad (separar por comas)" className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm" value={formData.stakeholders} onChange={e => setFormData({...formData, stakeholders: e.target.value})} /><p className="text-xs text-slate-500">Agrega las áreas o personas que deben ser informadas del objetivo.</p></div>
             <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => navigateTo('objectives', 'Objetivos')}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={() => navigateTo(isGeneralManager ? 'dashboard' : 'objectives', isGeneralManager ? 'Monitor' : 'Objetivos')}>Cancelar</Button>
               <Button type="submit">Crear objetivo</Button>
             </div>
           </form>
@@ -773,7 +788,7 @@ export default function App() {
           <nav className="px-4 space-y-1">
             <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
-            <button onClick={() => navigateTo('objectives', 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> Objetivos</button>
+            <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
             {isGcg && <button onClick={() => navigateTo('gcg-review', 'Revisión GCG')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Revisión GCG</button>}
           </nav>
         </div>
@@ -782,11 +797,12 @@ export default function App() {
         </div>
       </aside>
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 sticky top-0 z-10 shadow-sm">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 md:px-6 sticky top-0 z-10 shadow-sm gap-3">
+           {navHistory.length > 1 && <button onClick={goBack} className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900" aria-label="Retroceder"><ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Atrás</span></button>}
            <div className="flex items-center text-sm text-slate-500 font-medium min-w-0 overflow-x-auto whitespace-nowrap">
              {navHistory.map((nav, idx) => (
                <React.Fragment key={idx}>
-                 <span className={`cursor-pointer transition-colors ${idx === navHistory.length - 1 ? 'text-[#0F172A] font-semibold pointer-events-none' : 'hover:text-[#1D4ED8]'}`} onClick={() => { if(nav.id === 'dashboard') navigateTo('dashboard', 'Monitor'); }}>{nav.name}</span>
+                 <button disabled={idx === navHistory.length - 1} className={`transition-colors ${idx === navHistory.length - 1 ? 'text-[#0F172A] font-semibold cursor-default' : 'hover:text-[#1D4ED8] cursor-pointer'}`} onClick={() => restoreHistory(idx)}>{nav.name}</button>
                  {idx < navHistory.length - 1 && <ChevronRight className="w-4 h-4 mx-2 text-slate-300" />}
                </React.Fragment>
              ))}
