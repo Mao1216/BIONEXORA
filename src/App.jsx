@@ -265,7 +265,7 @@ export default function App() {
   };
 
   const navigateTo = (view, name, params = {}) => {
-    if ((view === 'new-objective' && !isGeneralManager) || (['new-project', 'edit-action', 'new-indicator', 'report-indicator'].includes(view) && !isResponsibleManager) || (view === 'gcg-review' && !isGcg)) return;
+    if ((view === 'new-objective' && !isGeneralManager) || (['new-project', 'edit-action', 'edit-target', 'new-indicator', 'report-indicator'].includes(view) && !isResponsibleManager) || (view === 'gcg-review' && !isGcg)) return;
     setCurrentView(view);
     if (params.objectiveId) setSelectedObjectiveId(params.objectiveId);
     if (params.indicatorId) setSelectedIndicatorId(params.indicatorId);
@@ -738,6 +738,23 @@ export default function App() {
     return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Editar acción estratégica</h1><p className="text-slate-500">{objective?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required value={formData.name} onChange={event => setFormData({ ...formData, name: event.target.value })} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={event => setFormData({ ...formData, description: event.target.value })} /></div><Select label="Responsable *" required options={availableUsers.map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={event => setFormData({ ...formData, ownerId: event.target.value })} /><Input label="Fecha programada de ejecución" type="date" value={formData.dueDate} onChange={event => setFormData({ ...formData, dueDate: event.target.value })} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', objective?.name || 'Objetivo', { objectiveId: action.objectiveId })}>Cancelar</Button><Button type="submit">Guardar cambios</Button></div></form></Card></div>;
   };
 
+  const EditTargetView = () => {
+    const indicator = indicators.find(item => item.id === selectedIndicatorId);
+    const [target, setTarget] = useState(indicator?.target ?? '');
+    const [comparator, setComparator] = useState(indicator?.comparator ?? '>=');
+    if (!indicator) return <div className="text-center text-slate-500 py-12">No se encontró el indicador.</div>;
+    const handleSubmit = async (event) => {
+      event.preventDefault();
+      const { error: historyError } = await supabase.from('indicator_target_history').insert({ indicator_id: indicator.id, target: indicator.target, comparator: indicator.comparator, changed_by: session.user.id });
+      if (historyError) { setDataError('No se pudo registrar el historial de la meta.'); return; }
+      const { data, error } = await supabase.from('indicators').update({ target: Number(target), comparator, approval_status: 'Pendiente de aprobación', updated_at: new Date().toISOString() }).eq('id', indicator.id).select().single();
+      if (error) { setDataError('No se pudo actualizar la meta del indicador.'); return; }
+      setIndicators(items => items.map(item => item.id === indicator.id ? toIndicator(data) : item));
+      navigateTo('indicator-detail', indicator.name, { indicatorId: indicator.id });
+    };
+    return <div className="max-w-xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Editar meta del indicador</h1><p className="text-slate-500">Al guardar, el indicador volverá a la aprobación de GCG.</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Select label="Comparador *" required options={[{ value: '>=', label: 'Mayor o igual (>=)' }, { value: '>', label: 'Mayor (>)' }, { value: '<=', label: 'Menor o igual (<=)' }, { value: '<', label: 'Menor (<)' }, { value: '=', label: 'Igual (=)' }]} value={comparator} onChange={event => setComparator(event.target.value)} /><Input label={`Nueva meta (${indicator.unit}) *`} type="number" step="0.01" required value={target} onChange={event => setTarget(event.target.value)} /><div className="flex justify-end gap-3 pt-3"><Button type="button" variant="ghost" onClick={() => navigateTo('indicator-detail', indicator.name, { indicatorId: indicator.id })}>Cancelar</Button><Button type="submit">Enviar a aprobación</Button></div></form></Card></div>;
+  };
+
   const IndicatorFormView = () => {
     const obj = objectives.find(o => o.id === selectedObjectiveId);
     const [formData, setFormData] = useState({ name: '', resource: '', formula: '', target: '', unit: '%', comparator: '>=', frequency: 'Mensual', reviewFrequency: 'Mensual', ownerId: '' });
@@ -840,7 +857,7 @@ export default function App() {
         <Card className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-semibold text-slate-900">Tendencia Histórica</h3>
-            {isResponsibleManager && <Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary" className="text-sm"><Plus className="w-4 h-4"/> Registrar Resultado</Button>}
+            {isResponsibleManager && <div className="flex gap-2"><Button onClick={() => navigateTo('edit-target', 'Editar meta', { indicatorId: ind.id })} variant="secondary" className="text-sm">Editar meta</Button><Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary" className="text-sm"><Plus className="w-4 h-4"/> Registrar Resultado</Button></div>}
           </div>
           {!isApproved && <div className="mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">Este indicador está <strong>{ind.approvalStatus || 'pendiente de aprobación GCG'}</strong>. La gerencia responsable podrá reportar resultados cuando GCG lo apruebe.</div>}
           {chartData.length > 0 ? (
@@ -1004,6 +1021,7 @@ export default function App() {
           {currentView === 'new-project' && <ProjectFormView />}
           {currentView === 'edit-action' && <EditActionView />}
           {currentView === 'new-indicator' && <IndicatorFormView />}
+          {currentView === 'edit-target' && <EditTargetView />}
           {currentView === 'gcg-review' && <GcgReviewView />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'indicator-detail' && <IndicatorDetailView />}
