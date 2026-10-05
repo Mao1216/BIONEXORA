@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import biomontLogo from './assets/biomont-logo.png';
 import { supabase } from './lib/supabase';
 import { ComparisonCharts, BioIndicators, ChangeRequests, IndicatorControls, AssignedIndicators } from './Governance';
+import BioIndicatorsView from './BioIndicatorsView';
 
 const ROLE_LABELS = {
   gerente_responsable: 'Gerente responsable',
@@ -172,6 +173,7 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [dataError, setDataError] = useState('');
   const [notification, setNotification] = useState(null);
+  const [visualizationsOpen, setVisualizationsOpen] = useState(false);
   const notify = (message, type = 'success') => {
     setNotification({ message, type, id: Date.now() });
     window.setTimeout(() => setNotification(current => current?.message === message ? null : current), 3800);
@@ -1063,9 +1065,9 @@ export default function App() {
         </div>
         <div className="flex-1 overflow-y-auto py-6">
           <nav className="px-4 space-y-1">
-            <button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className="w-full px-3 py-2.5 text-left rounded-lg hover:bg-slate-800">Bio Indicadores</button>
+            <button onClick={() => setVisualizationsOpen(open => !open)} aria-expanded={visualizationsOpen} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white"><span>Visualizaciones</span><ChevronRight className={`w-4 h-4 transition-transform ${visualizationsOpen ? 'rotate-90' : ''}`} /></button>
+            {visualizationsOpen && <div className="ml-3 pl-3 border-l border-slate-700 space-y-1"><button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'bio-indicators' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Bio Indicadores</button><button onClick={() => navigateTo('change-requests', 'Solicitudes de modificación')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'change-requests' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Solicitudes de modificación</button></div>}
             {isGcg && <button onClick={() => navigateTo('new-objective', 'Crear objetivo')} className="w-full px-3 py-2.5 text-left rounded-lg hover:bg-slate-800">Crear objetivo</button>}
-            <button onClick={() => navigateTo('change-requests', 'Solicitudes')} className="w-full px-3 py-2.5 text-left rounded-lg hover:bg-slate-800">Solicitudes de modificación</button>
             <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
@@ -1092,7 +1094,7 @@ export default function App() {
         <div className="p-6 md:p-8 flex-1 relative z-0">
           {dataError && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3"><span>{dataError}</span><button onClick={() => setDataError('')} className="font-semibold shrink-0">Cerrar</button></div>}
           {currentView === 'dashboard' && <><MonitorView /><ComparisonCharts indicators={indicators} reports={reports} /></>}
-          {currentView === 'bio-indicators' && <BioIndicators objectives={objectives} indicators={indicators} reports={reports} />}
+          {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} />}
           {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
