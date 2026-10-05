@@ -3,9 +3,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { supabase } from './lib/supabase';
 import { MONTHS, parseReportPeriod, comparisonData } from './lib/reporting';
 
-const box = 'bg-white border border-slate-200 rounded-xl p-5 space-y-4';
+const box = 'bg-white border border-slate-200 rounded-lg p-3 space-y-2';
 const field = 'border border-slate-300 rounded-lg p-2 text-sm w-full';
 const button = 'bg-blue-700 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50';
+const compactDetails = 'bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm';
 const months = MONTHS;
 
 function ComparisonChart({ indicators, reports, title }) {
@@ -69,7 +70,7 @@ export function IndicatorControls({ indicator, reports, isGcg, canManage, users,
     setBusy(false);
     if (error) onError(error.message); else { await onReload(); onNotify('Responsable de reporte actualizado.'); }
   };
-  return <div className="w-full space-y-3">
+  return <div className="w-full max-w-md ml-auto space-y-2">
     {needsHistoricalTarget && <div className={box}><p className="text-sm text-amber-800">Esta medición anterior no tiene meta histórica. Indica la meta que correspondía; GCG debe verificarla al aprobar la corrección.</p><label className="text-sm">Meta histórica propuesta<input type="number" step="any" className={field} value={historicalTarget} onChange={e => setHistoricalTarget(e.target.value)}/></label><label className="text-sm">Comparador histórico<select className={field} value={comparator} onChange={e => setComparator(e.target.value)}>{['>=','>','<=','<','='].map(c => <option key={c}>{c}</option>)}</select></label></div>}
     {isGcg && <details className={box}><summary className="cursor-pointer font-semibold">Editar definición · GCG</summary><form onSubmit={saveDefinition} className="space-y-3">
       {Object.entries({ name: 'Nombre', resource: 'Recursos', formula: 'Fórmula', unit: 'Unidad' }).map(([key,label]) => <label key={key} className="block text-sm">{label}<input required={key === 'name' || key === 'unit'} className={field} value={definition[key]} onChange={e => setDefinition({ ...definition, [key]: e.target.value })}/></label>)}
