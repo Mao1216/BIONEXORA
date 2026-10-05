@@ -307,6 +307,7 @@ export default function App() {
   const navigateTo = (view, name, params = {}) => {
     if ((['new-objective', 'new-indicator', 'edit-indicator', 'gcg-review'].includes(view) && !isGcg) || (['new-project', 'edit-action', 'edit-target', 'report-indicator', 'indicator-status'].includes(view) && !isResponsibleManager)) return;
     setCurrentView(view);
+    if (view === 'new-indicator' && !params.objectiveId) setSelectedObjectiveId(null);
     if (params.objectiveId) setSelectedObjectiveId(params.objectiveId);
     if (params.indicatorId) setSelectedIndicatorId(params.indicatorId);
     if (params.actionId) setSelectedActionId(params.actionId);
@@ -403,17 +404,6 @@ export default function App() {
         {isGeneralManager ? <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Objetivos</h2><p className="text-sm text-slate-500">Consulta el avance de los objetivos estratégicos.</p></div><select value={generalObjectiveFilter} onChange={event => setGeneralObjectiveFilter(event.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white"><option value="Todos">Todas las perspectivas</option>{perspectives.slice(1).map(item => <option key={item} value={item}>{item}</option>)}</select></div><div className="divide-y divide-slate-100">{generalObjectives.map(objective => <button key={objective.id} onClick={() => navigateTo('objective-detail', objective.name, { objectiveId: objective.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1 min-w-0"><p className="font-semibold text-slate-900 break-words">{objective.name}</p><p className="text-sm text-slate-500 mt-0.5">{objective.category} · Meta: {objective.targetDate}</p></div><div className="w-full sm:w-48 shrink-0"><div className="flex justify-between text-xs text-slate-500 mb-1"><span>Avance</span><span>{objective.progress}%</span></div><ProgressBar progress={objective.progress} status={objective.status} /></div></button>)}</div></Card> : isResponsibleManager ? <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Alertas</h2><p className="text-sm text-slate-500">Indicadores críticos: vencidos o fuera de meta.</p></div><Badge status={criticalIndicators.length ? 'Fuera de meta' : 'Cumplido'}>{criticalIndicators.length ? `${criticalIndicators.length} alertas` : 'Sin alertas'}</Badge></div><div className="divide-y divide-slate-100">{criticalIndicators.length ? criticalIndicators.map(indicator => { const objective = objectives.find(item => item.id === indicator.objectiveId); return <button key={indicator.id} onClick={() => navigateTo('indicator-detail', indicator.name, { indicatorId: indicator.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1 min-w-0"><p className="font-semibold text-slate-900 break-words">{indicator.name}</p><p className="text-sm text-slate-500 mt-0.5">Objetivo: {objective?.name || 'Sin objetivo asignado'}</p></div><div className="text-sm text-slate-500">Meta: {indicator.comparator} {indicator.target} {indicator.unit}</div><Badge status={indicator.criticalStatus === 'Vencido' ? 'En riesgo' : 'Fuera de meta'}>{indicator.criticalStatus}</Badge></button>}) : <p className="p-8 text-center text-sm text-slate-500">No hay indicadores vencidos ni fuera de meta.</p>}</div></Card> : <Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Alertas</h2><p className="text-sm text-slate-500">Objetivos con avance menor al esperado según el tiempo transcurrido.</p></div><Badge status={alerts.length ? 'En riesgo' : 'Cumplido'}>{alerts.length ? `${alerts.length} alertas` : 'Sin alertas'}</Badge></div><div className="divide-y divide-slate-100">{alerts.length ? alerts.map(objective => <button key={objective.id} onClick={() => navigateTo('objective-detail', objective.name, { objectiveId: objective.id })} className="w-full p-5 text-left hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-3"><div className="flex-1 min-w-0"><p className="font-semibold text-slate-900 break-words">{objective.name}</p><p className="text-sm text-slate-500 mt-0.5">Responsable: {MOCK_USERS.find(user => user.id === objective.ownerId)?.name}</p></div><div className="w-full sm:w-48 shrink-0"><div className="flex justify-between text-xs text-slate-500 mb-1"><span>Avance</span><span>{objective.progress}%</span></div><ProgressBar progress={objective.progress} status={objective.status} /></div><Badge status={objective.status}>{objective.status}</Badge></button>) : <p className="p-8 text-center text-sm text-slate-500">No hay objetivos con retraso respecto al tiempo registrado.</p>}</div></Card>}
       </div>
     );
-  };
-
-  const reviewIndicator = async (indicatorId, decision) => {
-    const approvalStatus = decision === 'approve' ? 'Aprobado' : 'Reformular';
-    const { error } = await supabase.from('indicators').update({ approval_status: approvalStatus, updated_at: new Date().toISOString() }).eq('id', indicatorId);
-    if (error) {
-      setDataError('No se pudo actualizar la revisión del indicador. Inténtalo nuevamente.');
-      return;
-    }
-    setIndicators(items => items.map(item => item.id === indicatorId ? { ...item, approvalStatus } : item));
-    notify(decision === 'approve' ? 'Indicador aprobado correctamente.' : 'Indicador rechazado y enviado a reformulación.', decision === 'approve' ? 'success' : 'warning');
   };
 
   const ObjectivesView = () => {
@@ -784,10 +774,6 @@ export default function App() {
     return <div className="max-w-2xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Añadir acción estratégica</h1><p className="text-slate-500">Gerencia responsable · {obj?.name}</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Input label="Nombre de la acción estratégica *" required placeholder="Ej.: Implementar tablero de producción" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Descripción</label><textarea rows={3} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div><Select label="Responsable *" required options={availableUsers.map(user => ({ value: user.id, label: user.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} /><Input label="Fecha programada de ejecución" type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} /><div className="pt-4 border-t border-slate-100 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button><Button type="submit">Registrar acción</Button></div></form></Card></div>;
   };
 
-  const GcgReviewView = () => {
-    const pending = indicators.filter(indicator => indicator.approvalStatus === 'Pendiente de aprobación' || indicator.approvalStatus === 'Reformular');
-    return <div className="fade-in space-y-6"><div><p className="text-sm font-semibold text-[#D71920] uppercase tracking-wider">GCG · Control de gestión</p><h1 className="text-2xl font-bold text-slate-900 mt-1">Revisión de indicadores</h1><p className="text-slate-500 mt-1">Aprueba indicadores listos para medición o devuélvelos a la gerencia responsable para reformulación.</p></div><Card className="overflow-hidden"><div className="p-5 border-b border-slate-200 flex justify-between items-center"><h2 className="font-semibold text-slate-900">Bandeja de revisión</h2><span className="text-sm text-slate-500">{pending.length} pendientes</span></div>{pending.length === 0 ? <div className="p-10 text-center text-slate-500">No hay indicadores pendientes de revisión.</div> : <div className="divide-y divide-slate-100">{pending.map(indicator => { const objective = objectives.find(item => item.id === indicator.objectiveId); return <div key={indicator.id} className="p-5"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p className="font-semibold text-slate-900">{indicator.name}</p><p className="text-sm text-slate-500 mt-1">Objetivo: {objective?.name} · Meta: {indicator.comparator} {indicator.target} {indicator.unit}</p><p className="text-xs text-slate-500 mt-2">Frecuencia: {indicator.frequency} · Responsable: {MOCK_USERS.find(user => user.id === Number(indicator.ownerId))?.name || 'Sin asignar'}</p></div><div className="flex gap-2 shrink-0"><Button variant="secondary" onClick={() => reviewIndicator(indicator.id, 'reject')}>Rechazar y reformular</Button><Button onClick={() => reviewIndicator(indicator.id, 'approve')}><CheckCircle2 className="w-4 h-4" /> Aprobar</Button></div></div></div>})}</div>}</Card></div>;
-  };
 
   const EditActionView = () => {
     const action = tasks.find(item => item.id === selectedActionId);
@@ -835,13 +821,15 @@ export default function App() {
   };
 
   const IndicatorFormView = () => {
-    const obj = objectives.find(o => o.id === selectedObjectiveId);
-    const [formData, setFormData] = useState({ name: '', resource: '', formula: '', target: '', unit: '%', comparator: '>=', frequency: 'Mensual', reviewFrequency: 'Mensual', ownerId: '' });
+    const [objectiveId, setObjectiveId] = useState(selectedObjectiveId || '');
+    const obj = objectives.find(o => String(o.id) === String(objectiveId));
+    const [formData, setFormData] = useState({ name: '', resource: '', formula: '', target: '', unit: '%', comparator: '>=', frequency: 'Mensual', reviewFrequency: 'Mensual', ownerId: objectives.find(o => o.id === selectedObjectiveId)?.ownerId || '' });
 
     const handleSubmit = async (e) => {
       e.preventDefault();
+      if (!isGcg || !obj) { setDataError('Solo GCG puede crear indicadores. Selecciona un objetivo válido.'); return; }
       const { data, error } = await supabase.from('indicators').insert({
-        objective_id: selectedObjectiveId,
+        objective_id: obj.id,
         name: formData.name,
         resource: formData.resource,
         formula: formData.formula,
@@ -854,12 +842,12 @@ export default function App() {
         approval_status: 'Aprobado',
       }).select().single();
       if (error) {
-        setDataError('No se pudo guardar el indicador. Inténtalo nuevamente.');
+        setDataError(`No se pudo guardar el indicador: ${error.message}`);
         return;
       }
       setIndicators([...indicators, toIndicator(data)]);
       notify('Indicador creado por GCG y habilitado para reportar.');
-      navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
+      navigateTo('objective-detail', obj.name, { objectiveId: obj.id });
     };
 
     return (
@@ -869,6 +857,7 @@ export default function App() {
           <h1 className="text-2xl font-bold text-[#0F172A]">Nuevo indicador estratégico</h1>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <Select label="Objetivo al que pertenece el indicador *" required options={[{ value: '', label: 'Seleccionar objetivo' }, ...objectives.map(o => ({ value: o.id, label: o.name }))]} value={objectiveId} onChange={e => { setObjectiveId(e.target.value); const objective = objectives.find(o => String(o.id) === e.target.value); setFormData(previous => ({ ...previous, ownerId: objective?.ownerId || '' })); }} />
           <Card className="p-6">
             <h3 className="text-sm font-bold text-[#1D4ED8] uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">1. Información General</h3>
             <div className="space-y-4">
@@ -896,7 +885,7 @@ export default function App() {
             </div>
           </Card>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: selectedObjectiveId })}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={() => obj ? navigateTo('objective-detail', obj.name, { objectiveId: obj.id }) : navigateTo('objectives', 'Objetivos')}>Cancelar</Button>
             <Button type="submit">Guardar Indicador</Button>
           </div>
         </form>
@@ -1069,8 +1058,9 @@ export default function App() {
         <div className="flex-1 overflow-y-auto py-6">
           <nav className="px-4 space-y-1">
             <button onClick={() => setVisualizationsOpen(open => !open)} aria-expanded={visualizationsOpen} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white"><span>Visualizaciones</span><ChevronRight className={`w-4 h-4 transition-transform ${visualizationsOpen ? 'rotate-90' : ''}`} /></button>
-            {visualizationsOpen && <div className="ml-3 pl-3 border-l border-slate-700 space-y-1"><button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'bio-indicators' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Bio Indicadores</button><button onClick={() => navigateTo('change-requests', 'Solicitudes de modificación')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'change-requests' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Solicitudes de modificación</button></div>}
+            {visualizationsOpen && <div className="ml-3 pl-3 border-l border-slate-700 space-y-1"><button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'bio-indicators' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Bio Indicadores</button>{!isGcg && <button onClick={() => navigateTo('change-requests', 'Solicitudes de modificación')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'change-requests' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Solicitudes de modificación</button>}</div>}
             {isGcg && <button onClick={() => navigateTo('new-objective', 'Crear objetivo')} className="w-full px-3 py-2.5 text-left rounded-lg hover:bg-slate-800">Crear objetivo</button>}
+            {isGcg && <button onClick={() => navigateTo('new-indicator', 'Crear indicador')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800"><Plus className="w-5 h-5" />Crear indicador</button>}
             <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
@@ -1096,7 +1086,7 @@ export default function App() {
         </header>
         <div className="p-6 md:p-8 flex-1 relative z-0">
           {dataError && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3"><span>{dataError}</span><button onClick={() => setDataError('')} className="font-semibold shrink-0">Cerrar</button></div>}
-          {currentView === 'dashboard' && <><MonitorView /><ComparisonCharts indicators={indicators} reports={reports} /></>}
+          {currentView === 'dashboard' && <><MonitorView />{isGcg && <ComparisonCharts indicators={indicators} reports={reports} />}</>}
           {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} />}
           {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'objectives' && <ObjectivesView />}
@@ -1108,7 +1098,7 @@ export default function App() {
           {currentView === 'indicator-status' && <AssignedIndicators indicators={indicators} objectives={objectives} ownIds={accountIdentities(session.user.email, organizationPeople)} isSuperAdmin={isSuperAdmin} onSelect={i => navigateTo('indicator-detail', i.name, { indicatorId: i.id })} />}
           {currentView === 'edit-indicator' && <EditIndicatorView />}
           {currentView === 'edit-target' && <EditTargetView />}
-          {currentView === 'gcg-review' && <GcgReviewView />}
+          {currentView === 'gcg-review' && isGcg && <ChangeRequests isGcg indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'indicator-detail' && <IndicatorDetailView />}
           {currentView === 'report-indicator' && <ReportFormView />}
@@ -1119,7 +1109,7 @@ export default function App() {
         <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#D71920]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Monitor</span></button>
         {isGeneralManager ? <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Objetivo</span></button> : <button onClick={() => navigateTo('objectives', 'Objetivos')} className="flex flex-col items-center gap-1 text-slate-500"><Target className="w-5 h-5" /><span className="text-[10px] font-medium">Objetivos</span></button>}
         <button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className="flex flex-col items-center gap-1 text-slate-500"><BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium">Bio Indicadores</span></button>
-        <button onClick={() => navigateTo('change-requests', 'Solicitudes')} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">Solicitudes</span></button>
+        <button onClick={() => navigateTo(isGcg ? 'gcg-review' : 'change-requests', isGcg ? 'Revisión GCG' : 'Solicitudes')} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">{isGcg ? 'Revisión GCG' : 'Solicitudes'}</span></button>
       </div>
     </div>
   );
