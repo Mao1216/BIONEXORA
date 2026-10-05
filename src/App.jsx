@@ -6,6 +6,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import biomontLogo from './assets/biomont-logo.png';
 import { supabase } from './lib/supabase';
+import { observeAuthentication } from './lib/authLifecycle';
 import { ComparisonCharts, BioIndicators, ChangeRequests, IndicatorControls, AssignedIndicators } from './Governance';
 import BioIndicatorsView from './BioIndicatorsView';
 
@@ -226,16 +227,16 @@ export default function App() {
       return undefined;
     }
 
-    let isActive = true;
     const resetAuthentication = () => {
-      if (!isActive) return;
       setSession(null);
       setAssignedRole(null);
       setSelectedRole(null);
+      setCurrentView('dashboard');
+      setNavHistory([{ id: 'dashboard', name: 'Monitor' }]);
       setAuthLoading(false);
     };
 
-    const loadAssignedRole = async (activeSession) => {
+    const loadAssignedRole = async (activeSession, isCurrent) => {
       if (!activeSession?.user) {
         resetAuthentication();
         return;
@@ -243,7 +244,7 @@ export default function App() {
 
       const email = activeSession.user.email?.trim().toLowerCase();
       if (!email) {
-        if (isActive) {
+        if (isCurrent()) {
           setSession(activeSession);
           setAuthError('Microsoft no devolvió un correo para esta cuenta.');
           setAuthLoading(false);
@@ -257,9 +258,11 @@ export default function App() {
         .eq('email', email)
         .maybeSingle();
 
-      if (!isActive) return;
+      if (!isCurrent()) return;
       setSession(activeSession);
-      if (error || !data?.role) {
+      if (error) {
+        setAuthError('No se pudo verificar tu rol. Reintenta sin cerrar la sesión.');
+      } else if (!data?.role) {
         setAssignedRole(null);
         setSelectedRole(null);
         setAuthError('Tu correo corporativo no tiene un rol asignado en Bionexora. Contacta al administrador.');
@@ -273,15 +276,15 @@ export default function App() {
       setAuthLoading(false);
     };
 
-    supabase.auth.getSession().then(({ data: { session: activeSession } }) => loadAssignedRole(activeSession));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, activeSession) => {
-      loadAssignedRole(activeSession);
+    return observeAuthentication(supabase.auth, {
+      onAccount: loadAssignedRole,
+      onRefresh: activeSession => setSession(activeSession),
+      onSignedOut: resetAuthentication,
+      onError: () => {
+        setAuthError('No se pudo verificar la sesión. Recarga para reintentar.');
+        setAuthLoading(false);
+      },
     });
-
-    return () => {
-      isActive = false;
-      subscription.unsubscribe();
-    };
   }, []);
 
   const signInWithMicrosoft = async () => {
