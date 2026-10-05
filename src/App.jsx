@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import biomontLogo from './assets/biomont-logo.png';
 import { supabase } from './lib/supabase';
 import { observeAuthentication } from './lib/authLifecycle';
+import { accountIdentities, indicatorAccess } from './lib/responsibility';
 import { ComparisonCharts, BioIndicators, ChangeRequests, IndicatorControls, AssignedIndicators } from './Governance';
 import BioIndicatorsView from './BioIndicatorsView';
 
@@ -911,9 +912,8 @@ export default function App() {
     const latestReport = indReports[indReports.length - 1];
     const chartData = indReports.map(r => ({ name: r.period.replace(',', ' '), Resultado: parseFloat(r.result), Meta: r.measurement_target ?? ind.target }));
     const isApproved = ind.approvalStatus === 'Aprobado';
-    const ownIds = [session.user.email, ...organizationPeople.filter(p => p.email?.toLowerCase() === session.user.email?.toLowerCase()).map(p => p.id)];
-    const canManage = ownIds.includes(ind.ownerId) || ownIds.includes(obj?.ownerId) || isSuperAdmin;
-    const canReport = canManage || ownIds.includes(ind.reporter_email);
+    const ownIds = accountIdentities(session.user.email, organizationPeople);
+    const { canManage, canReport } = indicatorAccess(ind, obj, ownIds, isSuperAdmin);
 
     return (
       <div className="fade-in space-y-6">
@@ -940,7 +940,6 @@ export default function App() {
         <Card className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-semibold text-slate-900">Tendencia Histórica</h3>
-            {(isGcg || canReport) && <IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} />}
             {isResponsibleManager && canReport && <Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary">Registrar resultado</Button>}
           </div>
           {!isApproved && <div className="mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">Este indicador está <strong>{ind.approvalStatus || 'pendiente de aprobación GCG'}</strong>. La gerencia responsable podrá reportar resultados cuando GCG lo apruebe.</div>}
@@ -983,6 +982,7 @@ export default function App() {
             </table>
           </div>
         </Card>
+        {(isGcg || canReport) && <section aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
       </div>
     );
   };
@@ -1105,7 +1105,7 @@ export default function App() {
           {currentView === 'new-project' && <ProjectFormView />}
           {currentView === 'edit-action' && <EditActionView />}
           {currentView === 'new-indicator' && <IndicatorFormView />}
-          {currentView === 'indicator-status' && <AssignedIndicators indicators={indicators} objectives={objectives} ownIds={[session.user.email, ...organizationPeople.filter(p => p.email?.toLowerCase() === session.user.email?.toLowerCase()).map(p => p.id)]} onSelect={i => navigateTo('indicator-detail', i.name, { indicatorId: i.id })} />}
+          {currentView === 'indicator-status' && <AssignedIndicators indicators={indicators} objectives={objectives} ownIds={accountIdentities(session.user.email, organizationPeople)} isSuperAdmin={isSuperAdmin} onSelect={i => navigateTo('indicator-detail', i.name, { indicatorId: i.id })} />}
           {currentView === 'edit-indicator' && <EditIndicatorView />}
           {currentView === 'edit-target' && <EditTargetView />}
           {currentView === 'gcg-review' && <GcgReviewView />}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from './lib/supabase';
 import { MONTHS, parseReportPeriod, comparisonData } from './lib/reporting';
+import { indicatorAccess } from './lib/responsibility';
 
 const box = 'bg-white border border-slate-200 rounded-lg p-3 space-y-2';
 const field = 'border border-slate-300 rounded-lg p-2 text-sm w-full';
@@ -23,8 +24,8 @@ export function ComparisonCharts(props) {
   return <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-6"><ComparisonChart {...props} title="Comparativa · periodo A"/><ComparisonChart {...props} title="Comparativa · periodo B"/></div>;
 }
 
-export function AssignedIndicators({ indicators, objectives, ownIds, onSelect }) {
-  const assigned = indicators.filter(i => ownIds.includes(i.ownerId) || ownIds.includes(i.reporter_email) || ownIds.includes(objectives.find(o => o.id === i.objectiveId)?.ownerId));
+export function AssignedIndicators({ indicators, objectives, ownIds, isSuperAdmin = false, onSelect }) {
+  const assigned = indicators.filter(i => indicatorAccess(i, objectives.find(o => o.id === i.objectiveId), ownIds, isSuperAdmin).canReport);
   return <div className="space-y-5"><h1 className="text-2xl font-bold">Indicadores asignados</h1><p className="text-slate-500">Reporta tus indicadores o delega el reporte. Las modificaciones requieren aprobación de GCG.</p>{assigned.map(i => <button key={i.id} className={`${box} w-full text-left hover:border-blue-400`} onClick={() => onSelect(i)}><h2 className="font-semibold">{i.name}</h2><p className="text-sm">Meta: {i.comparator} {i.target} {i.unit} · {i.status}</p></button>)}{!assigned.length && <p>No tienes indicadores asignados.</p>}</div>;
 }
 
@@ -70,7 +71,7 @@ export function IndicatorControls({ indicator, reports, isGcg, canManage, users,
     setBusy(false);
     if (error) onError(error.message); else { await onReload(); onNotify('Responsable de reporte actualizado.'); }
   };
-  return <div className="w-full max-w-md ml-auto space-y-2">
+  return <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start text-sm [&_summary]:text-sm [&_summary]:font-medium [&_form]:mt-3">
     {needsHistoricalTarget && <div className={box}><p className="text-sm text-amber-800">Esta medición anterior no tiene meta histórica. Indica la meta que correspondía; GCG debe verificarla al aprobar la corrección.</p><label className="text-sm">Meta histórica propuesta<input type="number" step="any" className={field} value={historicalTarget} onChange={e => setHistoricalTarget(e.target.value)}/></label><label className="text-sm">Comparador histórico<select className={field} value={comparator} onChange={e => setComparator(e.target.value)}>{['>=','>','<=','<','='].map(c => <option key={c}>{c}</option>)}</select></label></div>}
     {isGcg && <details className={box}><summary className="cursor-pointer font-semibold">Editar definición · GCG</summary><form onSubmit={saveDefinition} className="space-y-3">
       {Object.entries({ name: 'Nombre', resource: 'Recursos', formula: 'Fórmula', unit: 'Unidad' }).map(([key,label]) => <label key={key} className="block text-sm">{label}<input required={key === 'name' || key === 'unit'} className={field} value={definition[key]} onChange={e => setDefinition({ ...definition, [key]: e.target.value })}/></label>)}
