@@ -6,9 +6,9 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import biomontLogo from './assets/biomont-logo.png';
 import { supabase } from './lib/supabase';
+import { ComparisonCharts, BioIndicators, ChangeRequests, IndicatorControls, AssignedIndicators } from './Governance';
 
 const ROLE_LABELS = {
-  gerente_general: 'Gerente general',
   gerente_responsable: 'Gerente responsable',
   gcg: 'GCG',
   super_admin: 'Super admin',
@@ -176,7 +176,7 @@ export default function App() {
     setNotification({ message, type, id: Date.now() });
     window.setTimeout(() => setNotification(current => current?.message === message ? null : current), 3800);
   };
-  const isGeneralManager = selectedRole?.name === 'Gerente general';
+  const isGeneralManager = false;
   const isResponsibleManager = selectedRole?.name === 'Gerente responsable';
   const isGcg = selectedRole?.name === 'GCG';
   const isSuperAdmin = assignedRole === 'super_admin';
@@ -263,8 +263,9 @@ export default function App() {
         setAuthError('Tu correo corporativo no tiene un rol asignado en Bionexora. Contacta al administrador.');
       } else {
         setAuthError('');
-        setAssignedRole(data.role);
-        setSelectedRole(data.role === 'super_admin' ? null : { key: data.role, name: ROLE_LABELS[data.role] });
+        const role = data.role === 'gerente_general' ? 'gcg' : data.role;
+        setAssignedRole(role);
+        setSelectedRole(role === 'super_admin' ? null : { key: role, name: ROLE_LABELS[role] });
         await loadOperationalData();
       }
       setAuthLoading(false);
@@ -298,7 +299,7 @@ export default function App() {
   };
 
   const navigateTo = (view, name, params = {}) => {
-    if ((view === 'new-objective' && !isGeneralManager) || (['new-project', 'edit-action', 'edit-target', 'edit-indicator', 'new-indicator', 'report-indicator', 'indicator-status'].includes(view) && !isResponsibleManager) || (view === 'gcg-review' && !isGcg)) return;
+    if ((['new-objective', 'new-indicator', 'edit-indicator', 'gcg-review'].includes(view) && !isGcg) || (['new-project', 'edit-action', 'edit-target', 'report-indicator', 'indicator-status'].includes(view) && !isResponsibleManager)) return;
     setCurrentView(view);
     if (params.objectiveId) setSelectedObjectiveId(params.objectiveId);
     if (params.indicatorId) setSelectedIndicatorId(params.indicatorId);
@@ -422,7 +423,7 @@ export default function App() {
             <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">Buenos días, {session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'usuario'}</h1>
             <p className="text-slate-500 mt-1">Aquí está el resumen estratégico de tu organización.</p>
           </div>
-          {isGeneralManager && <Button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="hidden sm:flex">
+          {isGcg && <Button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')}>
             <Plus className="w-4 h-4" /> Nuevo Objetivo
           </Button>}
         </div>
@@ -724,10 +725,10 @@ export default function App() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-slate-900">Indicadores Estratégicos</h3>
-                {isResponsibleManager && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Crear Indicador</Button>}
+                {isGcg && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Crear Indicador</Button>}
               </div>
               {objIndicators.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><BarChart3 className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Aún no hay indicadores para medir este objetivo.</p>{isResponsibleManager && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Definir primer indicador</Button>}</div>
+                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><BarChart3 className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Aún no hay indicadores para medir este objetivo.</p>{isGcg && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Definir primer indicador</Button>}</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {objIndicators.map(ind => {
@@ -805,12 +806,9 @@ export default function App() {
     if (!indicator) return <div className="text-center text-slate-500 py-12">No se encontró el indicador.</div>;
     const handleSubmit = async (event) => {
       event.preventDefault();
-      const { error: historyError } = await supabase.from('indicator_target_history').insert({ indicator_id: indicator.id, target: indicator.target, comparator: indicator.comparator, changed_by: session.user.id });
-      if (historyError) { setDataError('No se pudo registrar el historial de la meta.'); return; }
-      const { data, error } = await supabase.from('indicators').update({ target: Number(target), comparator, approval_status: 'Pendiente de aprobación', updated_at: new Date().toISOString() }).eq('id', indicator.id).select().single();
+      const { error } = await supabase.from('indicator_change_requests').insert({ indicator_id: indicator.id, kind: 'target', proposed: { target: Number(target), comparator }, reason: 'Solicitud de cambio de meta', requested_by: session.user.id });
       if (error) { setDataError('No se pudo actualizar la meta del indicador.'); return; }
-      setIndicators(items => items.map(item => item.id === indicator.id ? toIndicator(data) : item));
-      notify('Meta actualizada y enviada a revisión de GCG.');
+      notify('Solicitud enviada. La meta vigente se conserva hasta la aprobación de GCG.');
       navigateTo('indicator-detail', indicator.name, { indicatorId: indicator.id });
     };
     return <div className="max-w-xl mx-auto fade-in"><div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Editar meta del indicador</h1><p className="text-slate-500">Al guardar, el indicador volverá a la aprobación de GCG.</p></div><Card className="p-6"><form onSubmit={handleSubmit} className="space-y-5"><Select label="Comparador *" required options={[{ value: '>=', label: 'Mayor o igual (>=)' }, { value: '>', label: 'Mayor (>)' }, { value: '<=', label: 'Menor o igual (<=)' }, { value: '<', label: 'Menor (<)' }, { value: '=', label: 'Igual (=)' }]} value={comparator} onChange={event => setComparator(event.target.value)} /><Input label={`Nueva meta (${indicator.unit}) *`} type="number" step="0.01" required value={target} onChange={event => setTarget(event.target.value)} /><div className="flex justify-end gap-3 pt-3"><Button type="button" variant="ghost" onClick={() => navigateTo('indicator-detail', indicator.name, { indicatorId: indicator.id })}>Cancelar</Button><Button type="submit">Enviar a aprobación</Button></div></form></Card></div>;
@@ -847,13 +845,14 @@ export default function App() {
         frequency: formData.frequency,
         review_frequency: formData.reviewFrequency,
         owner_email: formData.ownerId || null,
+        approval_status: 'Aprobado',
       }).select().single();
       if (error) {
         setDataError('No se pudo guardar el indicador. Inténtalo nuevamente.');
         return;
       }
       setIndicators([...indicators, toIndicator(data)]);
-      notify('Indicador creado y enviado a revisión de GCG.');
+      notify('Indicador creado por GCG y habilitado para reportar.');
       navigateTo('objective-detail', obj?.name || 'Objetivo', { objectiveId: selectedObjectiveId });
     };
 
@@ -887,7 +886,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <Select label="Plazo *" required options={['Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual']} value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} />
               <Select label="Frecuencia de revisión *" required options={['Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual']} value={formData.reviewFrequency} onChange={e => setFormData({...formData, reviewFrequency: e.target.value})} />
-              <Select label="Responsable del reporte *" required options={availableUsers.map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
+              <Select label="Responsable del reporte *" required options={availableUsers.filter(u => u.role === 'gerente_responsable').map(u => ({ value: u.id, label: u.name }))} value={formData.ownerId} onChange={e => setFormData({...formData, ownerId: e.target.value})} />
             </div>
           </Card>
           <div className="flex justify-end gap-3 pt-2">
@@ -905,8 +904,11 @@ export default function App() {
     if (!ind) return null;
     const indReports = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id));
     const latestReport = indReports[indReports.length - 1];
-    const chartData = indReports.map(r => ({ name: r.period.split(' ')[0], Resultado: parseFloat(r.result), Meta: ind.target }));
+    const chartData = indReports.map(r => ({ name: r.period.replace(',', ' '), Resultado: parseFloat(r.result), Meta: r.measurement_target ?? ind.target }));
     const isApproved = ind.approvalStatus === 'Aprobado';
+    const ownIds = [session.user.email, ...organizationPeople.filter(p => p.email?.toLowerCase() === session.user.email?.toLowerCase()).map(p => p.id)];
+    const canManage = ownIds.includes(ind.ownerId) || ownIds.includes(obj?.ownerId) || isSuperAdmin;
+    const canReport = canManage || ownIds.includes(ind.reporter_email);
 
     return (
       <div className="fade-in space-y-6">
@@ -933,7 +935,8 @@ export default function App() {
         <Card className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-semibold text-slate-900">Tendencia Histórica</h3>
-            {isResponsibleManager && <div className="flex gap-2"><Button onClick={() => navigateTo('edit-target', 'Editar meta', { indicatorId: ind.id })} variant="secondary" className="text-sm">Editar meta</Button><Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary" className="text-sm"><Plus className="w-4 h-4"/> Registrar Resultado</Button></div>}
+            {(isGcg || canReport) && <IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} />}
+            {isResponsibleManager && canReport && <Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary">Registrar resultado</Button>}
           </div>
           {!isApproved && <div className="mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">Este indicador está <strong>{ind.approvalStatus || 'pendiente de aprobación GCG'}</strong>. La gerencia responsable podrá reportar resultados cuando GCG lo apruebe.</div>}
           {chartData.length > 0 ? (
@@ -1002,14 +1005,8 @@ export default function App() {
         setDataError('No se pudo registrar el resultado. Inténtalo nuevamente.');
         return;
       }
-      const { error: indicatorError } = await supabase.from('indicators').update({ status: calcStatus, updated_at: new Date().toISOString() }).eq('id', ind.id);
-      if (indicatorError) {
-        setDataError('El resultado fue guardado, pero no se pudo actualizar el estado del indicador.');
-        await loadOperationalData();
-        return;
-      }
       setReports([...reports, toReport(data)]);
-      setIndicators(indicators.map(i => i.id === ind.id ? { ...i, status: calcStatus } : i));
+      await loadOperationalData();
       notify(`Resultado registrado: indicador ${calcStatus.toLowerCase()}.`, calcStatus === 'En meta' ? 'success' : 'warning');
       navigateTo('indicator-detail', ind.name, { indicatorId: ind.id });
     };
@@ -1052,9 +1049,8 @@ export default function App() {
 
   if (!selectedRole) {
     const roles = [
-      { key: 'gerente_general', name: 'Gerente general', description: 'Consulta el avance estratégico global de los objetivos.', icon: LayoutDashboard, color: 'bg-red-50 text-[#D71920] border-red-100' },
-      { key: 'gerente_responsable', name: 'Gerente responsable', description: 'Gestiona objetivos, acciones estratégicas, indicadores y resultados.', icon: Target, color: 'bg-blue-50 text-blue-600 border-blue-100' },
-      { key: 'gcg', name: 'GCG', description: 'Revisa, aprueba o devuelve indicadores para su reformulación.', icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }
+      { key: 'gerente_responsable', name: 'Gerente responsable', description: 'Reporta indicadores asignados y delega responsables de reporte.', icon: Target, color: 'bg-blue-50 text-blue-600 border-blue-100' },
+      { key: 'gcg', name: 'GCG', description: 'Crea objetivos e indicadores y aprueba solicitudes de modificación.', icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }
     ];
     return <AuthShell><div className="text-center mb-9"><img src={biomontLogo} alt="Biomont" className="h-20 w-auto object-contain mx-auto mb-6" /><p className="text-sm font-bold text-[#D71920] uppercase tracking-[0.2em]">Super administrador</p><h1 className="text-4xl font-bold text-slate-900 mt-2">Selecciona una vista</h1><p className="text-slate-500 mt-3 max-w-xl mx-auto">Elige el rol con el que deseas ingresar a Bionexora.</p></div><div className="grid grid-cols-1 md:grid-cols-3 gap-5">{roles.map(role => { const Icon = role.icon; return <button key={role.name} onClick={() => setSelectedRole(role)} className="bg-white border border-slate-200 rounded-2xl p-6 text-left shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-[#D71920]/40 transition-all group"><div className={`w-12 h-12 border rounded-xl flex items-center justify-center ${role.color}`}><Icon className="w-6 h-6" /></div><h2 className="text-lg font-bold text-slate-900 mt-5">{role.name}</h2><p className="text-sm text-slate-500 leading-6 mt-2">{role.description}</p><div className="flex items-center gap-2 text-sm font-semibold text-[#D71920] mt-6">Ingresar <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></div></button>})}</div><div className="text-center mt-7"><button onClick={signOut} className="text-sm text-slate-500 hover:text-slate-800">Cerrar sesión de {session.user.email}</button></div></AuthShell>;
   }
@@ -1067,6 +1063,9 @@ export default function App() {
         </div>
         <div className="flex-1 overflow-y-auto py-6">
           <nav className="px-4 space-y-1">
+            <button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className="w-full px-3 py-2.5 text-left rounded-lg hover:bg-slate-800">Bio Indicadores</button>
+            {isGcg && <button onClick={() => navigateTo('new-objective', 'Crear objetivo')} className="w-full px-3 py-2.5 text-left rounded-lg hover:bg-slate-800">Crear objetivo</button>}
+            <button onClick={() => navigateTo('change-requests', 'Solicitudes')} className="w-full px-3 py-2.5 text-left rounded-lg hover:bg-slate-800">Solicitudes de modificación</button>
             <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
@@ -1092,14 +1091,16 @@ export default function App() {
         </header>
         <div className="p-6 md:p-8 flex-1 relative z-0">
           {dataError && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3"><span>{dataError}</span><button onClick={() => setDataError('')} className="font-semibold shrink-0">Cerrar</button></div>}
-          {currentView === 'dashboard' && <MonitorView />}
+          {currentView === 'dashboard' && <><MonitorView /><ComparisonCharts indicators={indicators} reports={reports} /></>}
+          {currentView === 'bio-indicators' && <BioIndicators objectives={objectives} indicators={indicators} reports={reports} />}
+          {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
           {currentView === 'objective-detail' && <ObjectiveDetailView />}
           {currentView === 'new-project' && <ProjectFormView />}
           {currentView === 'edit-action' && <EditActionView />}
           {currentView === 'new-indicator' && <IndicatorFormView />}
-          {currentView === 'indicator-status' && <IndicatorStatusView />}
+          {currentView === 'indicator-status' && <AssignedIndicators indicators={indicators} objectives={objectives} ownIds={[session.user.email, ...organizationPeople.filter(p => p.email?.toLowerCase() === session.user.email?.toLowerCase()).map(p => p.id)]} onSelect={i => navigateTo('indicator-detail', i.name, { indicatorId: i.id })} />}
           {currentView === 'edit-indicator' && <EditIndicatorView />}
           {currentView === 'edit-target' && <EditTargetView />}
           {currentView === 'gcg-review' && <GcgReviewView />}
@@ -1112,7 +1113,8 @@ export default function App() {
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50">
         <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#D71920]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Monitor</span></button>
         {isGeneralManager ? <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Objetivo</span></button> : <button onClick={() => navigateTo('objectives', 'Objetivos')} className="flex flex-col items-center gap-1 text-slate-500"><Target className="w-5 h-5" /><span className="text-[10px] font-medium">Objetivos</span></button>}
-        <button className="flex flex-col items-center gap-1 text-slate-500 opacity-50"><User className="w-5 h-5" /><span className="text-[10px] font-medium">Perfil</span></button>
+        <button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className="flex flex-col items-center gap-1 text-slate-500"><BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium">Bio Indicadores</span></button>
+        <button onClick={() => navigateTo('change-requests', 'Solicitudes')} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">Solicitudes</span></button>
       </div>
     </div>
   );
