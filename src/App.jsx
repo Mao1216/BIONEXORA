@@ -912,6 +912,7 @@ export default function App() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-2">
+            <p className="text-xs font-semibold text-blue-700 mb-2">{ind.code}</p>
             <h1 className="text-2xl font-bold text-[#0F172A]">{ind.name}</h1>
             <p className="text-sm text-slate-500">Mide el avance del objetivo: <span className="font-medium text-slate-700">{obj?.name}</span></p>
             <div className="flex gap-4 mt-4 text-sm text-slate-600 bg-white p-3 rounded-lg border border-slate-200 inline-flex">
@@ -1100,4 +1101,3 @@ export default function App() {
     </div>
   );
 }
-            <p className="text-xs font-semibold text-blue-700 mb-2">{ind.code}</p>
