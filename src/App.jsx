@@ -642,7 +642,7 @@ export default function App() {
 
         <div className="border-b border-slate-200">
           <div className="flex gap-6 overflow-x-auto whitespace-nowrap pr-2">
-            {[ { id: 'summary', label: 'Resumen', icon: Activity }, { id: 'projects', label: 'Proyectos y Tareas', icon: FolderKanban, responsibleOnly: true }, { id: 'indicators', label: 'Indicadores', icon: BarChart3, responsibleOnly: true }].filter(tab => !tab.responsibleOnly || isResponsibleManager).map(tab => (
+            {[ { id: 'summary', label: 'Resumen', icon: Activity }, { id: 'projects', label: 'Proyectos', icon: FolderKanban, responsibleOnly: true }, { id: 'indicators', label: 'Indicadores', icon: BarChart3, responsibleOnly: true }].filter(tab => !tab.responsibleOnly || isResponsibleManager).map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? 'border-[#1D4ED8] text-[#1D4ED8]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
                 <tab.icon className="w-4 h-4" /> {tab.label}
               </button>
@@ -922,10 +922,10 @@ export default function App() {
             </div>
           </div>
           <Card className={`p-6 flex flex-col justify-center items-center text-center border-t-4 ${latestReport?.status === 'Cumplido' ? 'border-t-green-500' : latestReport?.status === 'En riesgo' ? 'border-t-yellow-500' : 'border-t-slate-300'}`}>
-             <p className="text-sm font-medium text-slate-500 mb-2">Resultado Actual</p>
+             <p className="text-sm font-medium text-slate-500 mb-2">Último reporte</p>
              <div className="text-4xl font-bold text-slate-900 mb-2">{latestReport?.result || '-'} <span className="text-xl text-slate-500 font-normal">{ind.unit}</span></div>
              <Badge status={latestReport?.status || 'Sin reporte'}>{latestReport?.status || 'Sin reporte'}</Badge>
-             <p className="text-xs text-slate-400 mt-3">Meta esperada: {ind.comparator} {ind.target}</p>
+             <p className="text-xs text-slate-400 mt-3">Meta: {ind.comparator} {ind.target}</p>
           </Card>
         </div>
         <Card className="p-6">
