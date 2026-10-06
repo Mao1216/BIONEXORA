@@ -83,16 +83,4 @@ export function IndicatorControls({ indicator, reports, isGcg, canManage, users,
   </div>;
 }
 
-export function ChangeRequests({ isGcg, indicators, onReload, onError }) {
-  const [requests, setRequests] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const load = async () => { const { data, error } = await supabase.from('indicator_change_requests').select('*').order('created_at', { ascending: false }); if (error) onError(error.message); else setRequests(data); };
-  useEffect(() => { load(); }, []);
-  const review = async (id, approve) => {
-    setBusy(true);
-    const { error } = await supabase.rpc('review_indicator_change', { request_id: id, approve });
-    if (error) onError(error.message); else { await load(); await onReload(); }
-    setBusy(false);
-  };
-  return <div className="space-y-5"><h1 className="text-2xl font-bold">Solicitudes de modificación</h1><p className="text-slate-500">Los cambios se aplican únicamente cuando GCG los aprueba.</p>{requests.map(r => <section key={r.id} className={box}><h2 className="font-bold">{indicators.find(i => i.id === r.indicator_id)?.name}</h2><p>Tipo: {r.kind === 'target' ? 'Meta' : r.kind === 'report' ? 'Medición' : 'Definición'} · {r.status}</p><p>Valor vigente al solicitar: {JSON.stringify(r.previous)}</p><p>Propuesta: {JSON.stringify(r.proposed)}</p><p>Motivo: {r.reason}</p>{isGcg && r.status === 'Pendiente' && <div className="flex gap-3"><button disabled={busy} className={button} onClick={() => review(r.id, true)}>Aprobar</button><button disabled={busy} className={button} onClick={() => review(r.id, false)}>Rechazar</button></div>}</section>)}{!requests.length && <p className="text-slate-500">Sin solicitudes.</p>}</div>;
-}
+export { default as ChangeRequests } from './ChangeRequestsView';

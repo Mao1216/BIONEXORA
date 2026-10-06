@@ -8,7 +8,10 @@ import biomontLogo from './assets/biomont-logo.png';
 import { supabase } from './lib/supabase';
 import { observeAuthentication } from './lib/authLifecycle';
 import { accountIdentities, indicatorAccess } from './lib/responsibility';
-import { ComparisonCharts, BioIndicators, ChangeRequests, IndicatorControls, AssignedIndicators } from './Governance';
+import { ComparisonCharts, IndicatorControls, AssignedIndicators } from './Governance';
+import ChangeRequests from './ChangeRequestsView';
+import MeasurementChart from './MeasurementChart';
+import { reportedProgress } from './lib/indicatorViews';
 import BioIndicatorsView from './BioIndicatorsView';
 
 const ROLE_LABELS = {
@@ -341,9 +344,8 @@ export default function App() {
     const indicatorsOutOfTarget = indicators.filter(indicator => indicator.status === 'Fuera de meta').length;
     const overdueIndicators = indicators.filter(indicator => !reports.some(report => report.indicatorId === indicator.id)).length;
     const averageProgress = objectives.length ? Math.round(objectives.reduce((total, objective) => total + objective.progress, 0) / objectives.length) : 0;
-    const indicatorProgress = indicators.length
-      ? Math.round(indicators.reduce((total, indicator) => total + (indicator.status === 'En meta' ? 100 : 0), 0) / indicators.length)
-      : 0;
+    const indicatorReporting = reportedProgress(indicators, reports);
+    const indicatorProgress = indicatorReporting.progress;
     const projectsProgress = projects.length
       ? Math.round(projects.reduce((total, project) => total + Number(project.progress || 0), 0) / projects.length)
       : 0;
@@ -354,7 +356,7 @@ export default function App() {
         return { ...indicator, criticalStatus: status };
       })
       .filter(indicator => indicator.criticalStatus === 'Vencido' || indicator.criticalStatus === 'Fuera de meta');
-    const chartData = objectives.map(objective => ({ name: objective.name, avance: objective.progress }));
+    const chartData = objectives.map(objective => ({ code: objective.code || 'Sin código', name: objective.name, avance: objective.progress }));
     const distribution = [
       { name: 'Cumplidos', value: fulfilled, color: '#16a34a' },
       { name: 'En progreso', value: objectives.filter(o => o.status === 'En progreso').length, color: '#2563eb' },
@@ -384,10 +386,10 @@ export default function App() {
 
         <div className={`grid grid-cols-1 sm:grid-cols-2 ${isGeneralManager ? 'xl:grid-cols-2' : 'xl:grid-cols-4'} gap-4`}>
           {isResponsibleManager ? <>
-            <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Avance de indicadores</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{indicatorProgress}%</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><p className="text-xs text-slate-500 mt-3">Indicadores reportados en meta</p></Card>
-            <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Indicadores activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{indicators.length}</h3><BarChart3 className="w-6 h-6 text-blue-600" /></div><p className="text-xs text-slate-500 mt-3">Registrados para medición</p></Card>
+            <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Indicadores activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{indicators.length}</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><div className="border-t border-slate-100 pt-3 mt-3"><p className="text-sm text-slate-600">Avance de indicadores <span className="font-semibold text-slate-900">{indicatorProgress}%</span></p><p className="text-xs text-slate-500 mt-1">{indicatorReporting.reported} de {indicatorReporting.total} con medición, estén o no en meta</p><ProgressBar progress={indicatorProgress} status="En progreso" /></div></Card>
+            <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Proyectos registrados</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{projects.length}</h3><FolderKanban className="w-6 h-6 text-blue-600" /></div><div className="border-t border-slate-100 pt-3 mt-3"><p className="text-sm text-slate-600">Avance de proyectos <span className="font-semibold text-slate-900">{projectsProgress}%</span></p><p className="text-xs text-slate-500 mt-1">Promedio del progreso registrado</p><ProgressBar progress={projectsProgress} status="En progreso" /></div></Card>
             <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">Número de acciones</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{tasks.length}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">Acciones estratégicas registradas</p></Card>
-            <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Avance de proyectos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{projectsProgress}%</h3><FolderKanban className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-amber-700 mt-3">Promedio de proyectos registrados</p></Card>
+            <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Indicadores sin medición</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{overdueIndicators}</h3><Clock className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-slate-500 mt-3">Pendientes de su primer reporte</p></Card>
           </> : <>
             <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Avance estratégico</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{averageProgress}%</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><p className="text-xs text-slate-500 mt-3">Promedio de objetivos activos</p></Card>
             <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Objetivos activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{objectives.length}</h3><Target className="w-6 h-6 text-blue-600" /></div><p className="text-xs text-slate-500 mt-3">En seguimiento este periodo</p></Card>
@@ -397,7 +399,7 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div>{!isGeneralManager && <button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button>}</div><div className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 12, right: 18, left: 12, bottom: 42 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="name" axisLine={false} tickLine={false} interval={0} angle={-18} textAnchor="end" height={72} tick={{ fill: '#475569', fontSize: 11 }} /><YAxis unit="%" width={48} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12 }} /><Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value}%`, 'Avance']} /><Bar dataKey="avance" fill="#D71920" radius={[6, 6, 0, 0]} barSize={42} /></BarChart></ResponsiveContainer></div></Card>
+          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div>{!isGeneralManager && <button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button>}</div><div className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 12, right: 18, left: 12, bottom: 42 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="code" axisLine={false} tickLine={false} interval={0} angle={-18} textAnchor="end" height={72} tick={{ fill: '#475569', fontSize: 11 }} /><YAxis unit="%" width={48} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12 }} /><Tooltip cursor={{ fill: '#f8fafc' }} labelFormatter={(code, payload) => `${code} · ${payload?.[0]?.payload?.name || ''}`} formatter={(value) => [`${value}%`, 'Avance']} /><Bar dataKey="avance" fill="#D71920" radius={[6, 6, 0, 0]} barSize={42} /></BarChart></ResponsiveContainer></div></Card>
           {isResponsibleManager ? <Card className="p-6"><div><h2 className="text-lg font-bold text-slate-900">Estado de indicadores</h2><p className="text-sm text-slate-500">Resumen de la última medición registrada.</p></div><div className="grid grid-cols-1 gap-3 mt-5"><div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center justify-between"><div><p className="text-sm font-semibold text-green-800">En meta</p><p className="text-xs text-green-700 mt-0.5">Reportados dentro de la meta</p></div><span className="text-2xl font-bold text-green-700">{indicatorsInTarget}</span></div><div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between"><div><p className="text-sm font-semibold text-red-800">Fuera de meta</p><p className="text-xs text-red-700 mt-0.5">Reportados fuera de la meta</p></div><span className="text-2xl font-bold text-red-700">{indicatorsOutOfTarget}</span></div><div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between"><div><p className="text-sm font-semibold text-amber-800">Vencido</p><p className="text-xs text-amber-700 mt-0.5">Aún no tienen reporte</p></div><span className="text-2xl font-bold text-amber-700">{overdueIndicators}</span></div></div></Card> : <Card className="p-6"><div className="flex items-start justify-between gap-2"><div><h2 className="text-lg font-bold text-slate-900">Estado del portafolio</h2><p className="text-sm text-slate-500">Haz clic en una categoría para filtrar las alertas.</p></div>{portfolioFilter && <button onClick={() => setPortfolioFilter(null)} className="text-xs font-semibold text-[#D71920]">Limpiar</button>}</div><div className="h-56 mt-2"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} paddingAngle={4} cursor="pointer" onClick={(entry) => setPortfolioFilter(portfolioFilter === entry.name ? null : entry.name)}>{distribution.map(item => <Cell key={item.name} fill={item.color} opacity={!portfolioFilter || portfolioFilter === item.name ? 1 : .35} />)}</Pie><Tooltip /><Legend iconType="circle" /></PieChart></ResponsiveContainer></div></Card>}
         </div>
 
@@ -488,7 +490,7 @@ export default function App() {
                             <Clock className="w-3 h-3"/> Meta: {obj.targetDate}
                           </span>
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900 group-hover:text-[#1D4ED8] transition-colors">{obj.name}</h3>
+                        <p className="text-xs font-semibold text-blue-700 mb-1">{obj.code}</p><h3 className="text-lg font-semibold text-slate-900 group-hover:text-[#1D4ED8] transition-colors">{obj.name}</h3>
                         <p className="text-sm text-slate-500 mt-1 line-clamp-1">{obj.description}</p>
                       </div>
                     </div>
@@ -531,9 +533,9 @@ export default function App() {
                     return (
                       <div key={ind.id} className="p-4 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigateTo('indicator-detail', ind.name, { indicatorId: ind.id, objectiveId: obj.id })}>
                         <p className="text-xs text-slate-500 mb-1 truncate">{obj?.name}</p>
-                        <h4 className="text-sm font-semibold text-slate-900 mb-2">{ind.name}</h4>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-2">{ind.code ? `${ind.code} · ` : ''}{ind.name}</h4>
                         <div className="flex justify-between items-center text-sm">
-                          <div><span className="text-slate-500 block text-xs">Resultado</span><span className="font-bold text-red-600">{latestReport?.result || '-'} {ind.unit}</span></div>
+                          <div><span className="text-slate-500 block text-xs">Resultado</span><span className="font-bold text-red-600">{latestReport?.result ?? '—'} {ind.unit}</span></div>
                           <div className="text-right"><span className="text-slate-500 block text-xs">Meta</span><span className="font-medium text-slate-700">{ind.comparator} {ind.target} {ind.unit}</span></div>
                         </div>
                       </div>
@@ -620,7 +622,7 @@ export default function App() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div>
                 <div className="flex items-center gap-3 mb-2"><Badge status={obj.status}>{obj.status}</Badge></div>
-                <h1 className="text-2xl font-bold text-[#0F172A]">{obj.name}</h1>
+                <p className="text-xs font-semibold text-blue-700 mb-2">{obj.code}</p><h1 className="text-2xl font-bold text-[#0F172A]">{obj.name}</h1>
                 <p className="text-slate-500 mt-1 max-w-3xl">{obj.description}</p>
               </div>
               <div className="text-right shrink-0">
@@ -732,7 +734,7 @@ export default function App() {
                     return (
                       <Card key={ind.id} className="p-5 flex flex-col h-full" onClick={() => navigateTo('indicator-detail', ind.name, { indicatorId: ind.id, objectiveId: obj.id })}>
                         <div className="flex justify-between items-start mb-4">
-                          <div className="pr-4"><h4 className="font-semibold text-slate-900 hover:text-[#1D4ED8] transition-colors">{ind.name}</h4><p className="text-xs text-slate-500 mt-1">Frecuencia: {ind.frequency}</p></div>
+                          <div className="pr-4"><h4 className="font-semibold text-slate-900 hover:text-[#1D4ED8] transition-colors">{ind.code ? `${ind.code} · ` : ''}{ind.name}</h4><p className="text-xs text-slate-500 mt-1">Frecuencia: {ind.frequency}</p></div>
                           <div className="flex flex-col items-end gap-2"><Badge status={ind.status}>{ind.status}</Badge><span className={`text-[11px] font-semibold ${ind.approvalStatus === 'Aprobado' ? 'text-green-700' : ind.approvalStatus === 'Reformular' ? 'text-red-600' : 'text-amber-600'}`}>{ind.approvalStatus || 'Pendiente de aprobación GCG'}</span></div>
                         </div>
                         <div className="mt-auto pt-4 border-t border-slate-100 flex items-end justify-between">
@@ -899,7 +901,6 @@ export default function App() {
     if (!ind) return null;
     const indReports = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id));
     const latestReport = indReports[indReports.length - 1];
-    const chartData = indReports.map(r => ({ name: r.period.replace(',', ' '), Resultado: parseFloat(r.result), Meta: r.measurement_target ?? ind.target }));
     const isApproved = ind.approvalStatus === 'Aprobado';
     const ownIds = accountIdentities(session.user.email, organizationPeople);
     const { canManage, canReport } = indicatorAccess(ind, obj, ownIds, isSuperAdmin);
@@ -932,22 +933,7 @@ export default function App() {
             {isResponsibleManager && canReport && <Button disabled={!isApproved} onClick={() => navigateTo('report-indicator', 'Registrar Resultado', { indicatorId: ind.id })} variant="secondary">Registrar resultado</Button>}
           </div>
           {!isApproved && <div className="mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">Este indicador está <strong>{ind.approvalStatus || 'pendiente de aprobación GCG'}</strong>. La gerencia responsable podrá reportar resultados cuando GCG lo apruebe.</div>}
-          {chartData.length > 0 ? (
-            <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} />
-                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                  <ReferenceLine y={ind.target} label={{ position: 'top', value: 'Meta', fill: '#94a3b8', fontSize: 12 }} stroke="#94a3b8" strokeDasharray="3 3" />
-                  <Line type="monotone" dataKey="Resultado" stroke="#1D4ED8" strokeWidth={3} dot={{r: 4, strokeWidth: 2}} activeDot={{r: 6}} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-48 flex items-center justify-center text-slate-400 text-sm italic bg-slate-50 rounded-lg">No hay suficientes datos para generar el gráfico.</div>
-          )}
+          <MeasurementChart indicator={ind} reports={indReports} />
         </Card>
         <Card className="overflow-hidden">
           <div className="p-5 border-b border-slate-200"><h3 className="font-semibold text-slate-900">Historial de Mediciones</h3></div>
@@ -1058,7 +1044,7 @@ export default function App() {
         <div className="flex-1 overflow-y-auto py-6">
           <nav className="px-4 space-y-1">
             <button onClick={() => setVisualizationsOpen(open => !open)} aria-expanded={visualizationsOpen} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white"><span>Visualizaciones</span><ChevronRight className={`w-4 h-4 transition-transform ${visualizationsOpen ? 'rotate-90' : ''}`} /></button>
-            {visualizationsOpen && <div className="ml-3 pl-3 border-l border-slate-700 space-y-1"><button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'bio-indicators' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Bio Indicadores</button>{!isGcg && <button onClick={() => navigateTo('change-requests', 'Solicitudes de modificación')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'change-requests' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Solicitudes de modificación</button>}</div>}
+            {visualizationsOpen && <div className="ml-3 pl-3 border-l border-slate-700 space-y-1"><button onClick={() => navigateTo('bio-indicators', 'Indicadores')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'bio-indicators' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Indicadores</button>{!isGcg && <button onClick={() => navigateTo('change-requests', 'Solicitudes de modificación')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'change-requests' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Solicitudes de modificación</button>}</div>}
             {isGcg && <button onClick={() => navigateTo('new-objective', 'Crear objetivo')} className="w-full px-3 py-2.5 text-left rounded-lg hover:bg-slate-800">Crear objetivo</button>}
             {isGcg && <button onClick={() => navigateTo('new-indicator', 'Crear indicador')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800"><Plus className="w-5 h-5" />Crear indicador</button>}
             <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
@@ -1108,9 +1094,10 @@ export default function App() {
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50">
         <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#D71920]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Monitor</span></button>
         {isGeneralManager ? <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Objetivo</span></button> : <button onClick={() => navigateTo('objectives', 'Objetivos')} className="flex flex-col items-center gap-1 text-slate-500"><Target className="w-5 h-5" /><span className="text-[10px] font-medium">Objetivos</span></button>}
-        <button onClick={() => navigateTo('bio-indicators', 'Bio Indicadores')} className="flex flex-col items-center gap-1 text-slate-500"><BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium">Bio Indicadores</span></button>
+        <button onClick={() => navigateTo('bio-indicators', 'Indicadores')} className="flex flex-col items-center gap-1 text-slate-500"><BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium">Indicadores</span></button>
         <button onClick={() => navigateTo(isGcg ? 'gcg-review' : 'change-requests', isGcg ? 'Revisión GCG' : 'Solicitudes')} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">{isGcg ? 'Revisión GCG' : 'Solicitudes'}</span></button>
       </div>
     </div>
   );
 }
+            <p className="text-xs font-semibold text-blue-700 mb-2">{ind.code}</p>
