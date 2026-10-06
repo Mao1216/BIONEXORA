@@ -6,19 +6,20 @@ import { comparisonLines } from './lib/comparisonLines';
 const field = 'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm';
 function Filters({ title, color, indicators, years, value, onChange }) {
   const change = key => event => onChange({ ...value, [key]: event.target.value });
+  const toggleMonth = month => onChange({ ...value, months: value.months.includes(month) ? value.months.filter(item => item !== month) : [...value.months, month] });
   return <section aria-label={title} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
     <h2 className={`font-semibold ${color}`}>{title}</h2>
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
       <label className="text-sm font-medium text-slate-600">Año<select aria-label={`${title}: Año`} className={field} value={value.year} onChange={change('year')}><option value="">Todos</option>{years.map(year => <option key={year}>{year}</option>)}</select></label>
-      <label className="text-sm font-medium text-slate-600">Mes<select aria-label={`${title}: Mes`} className={field} value={value.month} onChange={change('month')}><option value="">Todos</option>{MONTHS.map(month => <option key={month} value={month.toLowerCase()}>{month}</option>)}</select></label>
+      <div className="text-sm font-medium text-slate-600">Meses<details className="relative mt-1"><summary aria-label={`${title}: Meses`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm cursor-pointer">{value.months.length === MONTHS.length ? 'Todos' : `${value.months.length} seleccionados`}</summary><div className="absolute left-0 top-full mt-1 z-20 min-w-[15rem] rounded-lg border border-slate-300 bg-white p-3 shadow-sm"><div className="flex gap-4 mb-3"><button type="button" onClick={() => onChange({ ...value, months: MONTHS.map(month => month.toLowerCase()) })} className="text-xs underline">Todos</button><button type="button" onClick={() => onChange({ ...value, months: [] })} className="text-xs underline">Ninguno</button></div><div className="grid grid-cols-2 gap-2">{MONTHS.map(month => <label key={month} className="flex items-center gap-2 text-xs"><input type="checkbox" aria-label={`${title}: ${month}`} checked={value.months.includes(month.toLowerCase())} onChange={() => toggleMonth(month.toLowerCase())} />{month}</label>)}</div></div></details></div>
       <label className="text-sm font-medium text-slate-600">Indicador<select aria-label={`${title}: Indicador`} className={field} value={value.indicatorId} onChange={change('indicatorId')}><option value="">Seleccionar</option>{indicators.map(indicator => <option key={indicator.id} value={indicator.id}>{indicator.code ? `${indicator.code} · ` : ''}{indicator.name}</option>)}</select></label>
     </div>
   </section>;
 }
 
 export default function ComparisonLines({ indicators, reports }) {
-  const [a, setA] = useState({ indicatorId: '', year: '', month: '' });
-  const [b, setB] = useState({ indicatorId: '', year: '', month: '' });
+  const [a, setA] = useState({ indicatorId: '', year: '', months: MONTHS.map(month => month.toLowerCase()) });
+  const [b, setB] = useState({ indicatorId: '', year: '', months: MONTHS.map(month => month.toLowerCase()) });
   const years = [...new Set(reports.map(report => parseReportPeriod(report.period)?.year).filter(Boolean))].sort().reverse();
   const indicatorA = indicators.find(indicator => String(indicator.id) === a.indicatorId);
   const indicatorB = indicators.find(indicator => String(indicator.id) === b.indicatorId);

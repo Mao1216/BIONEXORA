@@ -1,3 +1,7 @@
+export function rankedObjectives(objectives) {
+  return objectives.map(objective => ({ ...objective, progress: Number.isFinite(Number(objective.progress)) ? Math.min(100, Math.max(0, Number(objective.progress))) : 0 })).sort((a, b) => b.progress - a.progress);
+}
+
 export function activeObjectives(objectives, now = new Date()) {
   const year = Number(new Intl.DateTimeFormat('en', { timeZone: 'America/Lima', year: 'numeric' }).format(now));
   return objectives.filter(objective => {

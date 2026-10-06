@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { activeObjectives } from '../src/lib/objectiveViews.js';
+import { activeObjectives, rankedObjectives } from '../src/lib/objectiveViews.js';
 import { comparisonLines } from '../src/lib/comparisonLines.js';
 
 test('objectives in their validity period are active regardless of obsolete stored status', () => {
@@ -45,5 +45,25 @@ test('GCG navigation hides breadcrumb links and the duplicate objective shortcut
   assert.match(source, /indicadores con medición/);
   assert.match(source, /Proyectos PMO/);
   assert.match(source, /\{\(isResponsibleManager \|\| isGcg\) \? <>/);
-  assert.match(source, /payload\[0\].payload.name/);
+  assert.match(source, /<ObjectiveProgressList objectives=\{objectives\}/);
+  const progressList = readFileSync(new URL('../src/ObjectiveProgressList.jsx', import.meta.url), 'utf8');
+  assert.match(progressList, /title=\{objective.name\}/);
+  assert.match(progressList, /h-80 overflow-y-auto/);
+  assert.match(progressList, /h-20 grid/);
+});
+
+test('objectives sort by progress without changing the original list, retaining all rows', () => {
+  const objectives = [8, 54, 31, 82, 15, 68, 20, 28].map((progress, id) => ({ id, progress, name: `Objective ${id}` }));
+  assert.deepEqual(rankedObjectives(objectives).map(row => row.progress), [82, 68, 54, 31, 28, 20, 15, 8]);
+  assert.deepEqual(objectives.map(row => row.progress), [8, 54, 31, 82, 15, 68, 20, 28]);
+  assert.deepEqual(rankedObjectives([{ progress: null }, { progress: '10' }, { progress: 'invalid' }]).map(row => row.progress), [10, 0, 0]);
+  assert.deepEqual(rankedObjectives([]), []);
+});
+
+test('multi-month filters are independent, preserve chronology and exclude unselected months', () => {
+  const reports = ['Marzo,2026', 'Enero,2026', 'Febrero,2026'].map((period, id) => ({ id, indicatorId: 1, period, result: id + 10 }));
+  const rows = comparisonLines(reports, { indicatorId: '1', year: '2026', months: ['enero', 'marzo'] }, { indicatorId: '1', year: '2026', months: ['febrero', 'marzo'] });
+  assert.deepEqual(rows.map(row => [row.period, row.a, row.b]), [['Enero', 11, null], ['Febrero', null, 12], ['Marzo', 10, 10]]);
+  assert.deepEqual(comparisonLines(reports, { indicatorId: '1', months: [] }, { indicatorId: '1', months: [] }), []);
+  assert.equal(comparisonLines(reports, { indicatorId: '1', months: ['enero','febrero','marzo'] }, { indicatorId: '' }).length, 3);
 });
