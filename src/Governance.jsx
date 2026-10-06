@@ -1,28 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from './lib/supabase';
-import { MONTHS, parseReportPeriod, comparisonData } from './lib/reporting';
 import { indicatorAccess } from './lib/responsibility';
 
 const box = 'bg-white border border-slate-200 rounded-lg p-3 space-y-2';
 const field = 'border border-slate-300 rounded-lg p-2 text-sm w-full';
 const button = 'bg-blue-700 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50';
 const compactDetails = 'bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm';
-const months = MONTHS;
 
-function ComparisonChart({ indicators, reports, title }) {
-  const [indicatorId, setIndicatorId] = useState('');
-  const [year, setYear] = useState('');
-  const [month, setMonth] = useState('');
-  const indicator = indicators.find(item => String(item.id) === indicatorId);
-  const years = [...new Set(reports.map(item => parseReportPeriod(item.period)?.year))].filter(Boolean).sort();
-  const data = comparisonData(reports, { indicatorId, year, month });
-  return <section className={box}><h2 className="font-bold">{title}</h2><div className="grid grid-cols-3 gap-2"><label className="text-sm">Año<select className={field} value={year} onChange={e => setYear(e.target.value)}><option value="">Todos</option>{years.map(y => <option key={y}>{y}</option>)}</select></label><label className="text-sm">Mes<select className={field} value={month} onChange={e => setMonth(e.target.value)}><option value="">Todos</option>{months.map(m => <option key={m} value={m.toLowerCase()}>{m}</option>)}</select></label><label className="text-sm">Indicador<select className={field} value={indicatorId} onChange={e => setIndicatorId(e.target.value)}><option value="">Seleccionar</option>{indicators.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></label></div><p className="text-xs text-slate-500">Resultados por periodo {indicator ? `(${indicator.unit})` : ''}. Selecciona el mismo indicador en ambas gráficas para comparar periodos.</p>{data.length ? <div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="period"/><YAxis/><Tooltip/><Bar dataKey="resultado" fill="#1D4ED8"/></BarChart></ResponsiveContainer></div> : <p className="py-16 text-center text-slate-500">{indicatorId ? 'Sin mediciones para estos filtros.' : 'Selecciona un indicador.'}</p>}</section>;
-}
-
-export function ComparisonCharts(props) {
-  return <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-6"><ComparisonChart {...props} title="Comparativa · periodo A"/><ComparisonChart {...props} title="Comparativa · periodo B"/></div>;
-}
+export { default as ComparisonCharts } from './ComparisonLines';
 
 export function AssignedIndicators({ indicators, objectives, ownIds, isSuperAdmin = false, onSelect }) {
   const assigned = indicators.filter(i => indicatorAccess(i, objectives.find(o => o.id === i.objectiveId), ownIds, isSuperAdmin).canReport);
