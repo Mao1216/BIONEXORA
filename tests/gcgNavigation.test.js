@@ -13,8 +13,11 @@ test('GCG review uses change requests instead of indicator approval', () => {
   assert.doesNotMatch(app, /<GcgReviewView/);
 });
 
-test('GCG has direct creation access and selects a valid objective', () => {
-  assert.match(app, /isGcg && <button onClick=\{\(\) => navigateTo\('new-indicator', 'Crear indicador'\)/);
+test('GCG creates indicators from a valid objective detail', () => {
+  const detail = app.slice(app.indexOf('const ObjectiveDetailView'), app.indexOf('const ProjectFormView'));
+  const sidebar = app.slice(app.indexOf('<nav className="px-4'), app.indexOf('</nav>', app.indexOf('<nav className="px-4')));
+  assert.match(detail, /isGcg && <Button onClick=\{\(\) => navigateTo\('new-indicator', 'Nuevo Indicador', \{ objectiveId: obj\.id \}\)/);
+  assert.doesNotMatch(sidebar, /navigateTo\('new-indicator'/);
   assert.match(app, /if \(!isGcg \|\| !obj\)/);
   assert.match(app, /objective_id: obj.id/);
   assert.match(app, /if \(view === 'new-indicator' && !params.objectiveId\) setSelectedObjectiveId\(null\)/);

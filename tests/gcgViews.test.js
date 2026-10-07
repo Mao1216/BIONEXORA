@@ -45,7 +45,7 @@ test('GCG navigation hides breadcrumb links and the duplicate objective shortcut
   assert.match(source, /indicadores con medición/);
   assert.match(source, /Proyectos PMO/);
   assert.match(source, /\{\(isResponsibleManager \|\| isGcg\) \? <>/);
-  assert.match(source, /<ObjectiveProgressList objectives=\{objectives\}/);
+  assert.match(source, /<ObjectiveProgressList objectives=\{scopedObjectives\}/);
   const progressList = readFileSync(new URL('../src/ObjectiveProgressList.jsx', import.meta.url), 'utf8');
   assert.match(progressList, /title=\{objective.name\}/);
   assert.match(progressList, /h-80 overflow-y-auto/);

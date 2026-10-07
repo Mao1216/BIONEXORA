@@ -206,6 +206,22 @@ export default function App() {
     })),
   ];
   const MOCK_USERS = availableUsers;
+  const currentAccountIds = accountIdentities(session?.user?.email, organizationPeople);
+  const accountOwns = value => currentAccountIds.some(id => String(id).trim().toLowerCase() === String(value ?? '').trim().toLowerCase());
+  const isManagerScoped = isResponsibleManager && !isSuperAdmin;
+  const scopedObjectives = isManagerScoped ? objectives.filter(objective => accountOwns(objective.ownerId)) : objectives;
+  const scopedIndicators = isManagerScoped
+    ? indicators.filter(indicator => indicatorAccess(indicator, objectives.find(objective => objective.id === indicator.objectiveId), currentAccountIds).canReport)
+    : indicators;
+  const scopedProjects = isManagerScoped
+    ? projects.filter(project => scopedObjectives.some(objective => objective.id === project.objectiveId))
+    : projects;
+  const scopedTasks = isManagerScoped
+    ? tasks.filter(task => scopedObjectives.some(objective => objective.id === task.objectiveId))
+    : tasks;
+  const scopedReports = isManagerScoped
+    ? reports.filter(report => scopedIndicators.some(indicator => indicator.id === report.indicatorId))
+    : reports;
 
   const loadOperationalData = async () => {
     if (!supabase) return;
@@ -348,28 +364,28 @@ export default function App() {
   };
 
   const MonitorView = () => {
-    const activeObjectiveCount = activeObjectives(objectives).length;
-    const fulfilled = objectives.filter(o => o.status === 'Cumplido').length;
-    const atRisk = objectives.filter(o => o.status === 'En riesgo').length;
-    const indicatorsInTarget = indicators.filter(indicator => indicator.status === 'En meta').length;
-    const indicatorsOutOfTarget = indicators.filter(indicator => indicator.status === 'Fuera de meta').length;
-    const overdueIndicators = indicators.filter(indicator => !reports.some(report => report.indicatorId === indicator.id)).length;
-    const averageProgress = objectives.length ? Math.round(objectives.reduce((total, objective) => total + objective.progress, 0) / objectives.length) : 0;
-    const indicatorReporting = reportedProgress(indicators, reports);
+    const activeObjectiveCount = activeObjectives(scopedObjectives).length;
+    const fulfilled = scopedObjectives.filter(o => o.status === 'Cumplido').length;
+    const atRisk = scopedObjectives.filter(o => o.status === 'En riesgo').length;
+    const indicatorsInTarget = scopedIndicators.filter(indicator => indicator.status === 'En meta').length;
+    const indicatorsOutOfTarget = scopedIndicators.filter(indicator => indicator.status === 'Fuera de meta').length;
+    const overdueIndicators = scopedIndicators.filter(indicator => !scopedReports.some(report => report.indicatorId === indicator.id)).length;
+    const averageProgress = scopedObjectives.length ? Math.round(scopedObjectives.reduce((total, objective) => total + objective.progress, 0) / scopedObjectives.length) : 0;
+    const indicatorReporting = reportedProgress(scopedIndicators, scopedReports);
     const indicatorProgress = indicatorReporting.progress;
-    const projectsProgress = projects.length
-      ? Math.round(projects.reduce((total, project) => total + Number(project.progress || 0), 0) / projects.length)
+    const projectsProgress = scopedProjects.length
+      ? Math.round(scopedProjects.reduce((total, project) => total + Number(project.progress || 0), 0) / scopedProjects.length)
       : 0;
-    const criticalIndicators = indicators
+    const criticalIndicators = scopedIndicators
       .map(indicator => {
-        const hasReport = reports.some(report => report.indicatorId === indicator.id);
+        const hasReport = scopedReports.some(report => report.indicatorId === indicator.id);
         const status = hasReport ? indicator.status : 'Vencido';
         return { ...indicator, criticalStatus: status };
       })
       .filter(indicator => indicator.criticalStatus === 'Vencido' || indicator.criticalStatus === 'Fuera de meta');
     const distribution = [
       { name: 'Cumplidos', value: fulfilled, color: '#16a34a' },
-      { name: 'En progreso', value: objectives.filter(o => o.status === 'En progreso').length, color: '#2563eb' },
+      { name: 'En progreso', value: scopedObjectives.filter(o => o.status === 'En progreso').length, color: '#2563eb' },
       { name: 'En riesgo', value: atRisk, color: '#f59e0b' }
     ].filter(item => item.value > 0);
     const isBehindSchedule = (objective) => {
@@ -379,9 +395,9 @@ export default function App() {
       const expected = Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100));
       return objective.status === 'En riesgo' || objective.progress + 10 < expected;
     };
-    const alerts = objectives.filter(isBehindSchedule).filter(objective => !portfolioFilter || objective.status === portfolioFilter);
-    const perspectives = ['Todos', ...new Set(objectives.map(objective => objective.category))];
-    const generalObjectives = objectives.filter(objective => generalObjectiveFilter === 'Todos' || objective.category === generalObjectiveFilter);
+    const alerts = scopedObjectives.filter(isBehindSchedule).filter(objective => !portfolioFilter || objective.status === portfolioFilter);
+    const perspectives = ['Todos', ...new Set(scopedObjectives.map(objective => objective.category))];
+    const generalObjectives = scopedObjectives.filter(objective => generalObjectiveFilter === 'Todos' || objective.category === generalObjectiveFilter);
 
     return (
       <div className="space-y-6 fade-in">
@@ -396,20 +412,20 @@ export default function App() {
 
         <div className={`grid grid-cols-1 sm:grid-cols-2 ${isGeneralManager ? 'xl:grid-cols-2' : 'xl:grid-cols-4'} gap-4`}>
           {(isResponsibleManager || isGcg) ? <>
-            <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Indicadores activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{indicators.length}</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><div className="border-t border-slate-100 pt-3 mt-3"><p className="text-sm text-slate-600">Avance de indicadores <span className="font-semibold text-slate-900">{indicatorProgress}%</span></p><p className="text-xs text-slate-500 mt-1">{indicatorReporting.reported} de {indicatorReporting.total} indicadores con medición</p><ProgressBar progress={indicatorProgress} status="En progreso" /></div></Card>
-            <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Proyectos registrados</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{projects.length}</h3><FolderKanban className="w-6 h-6 text-blue-600" /></div><div className="border-t border-slate-100 pt-3 mt-3"><p className="text-sm text-slate-600">Avance de proyectos <span className="font-semibold text-slate-900">{projectsProgress}%</span></p><p className="text-xs text-slate-500 mt-1">Proyectos PMO</p><ProgressBar progress={projectsProgress} status="En progreso" /></div></Card>
-            <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">{isGcg ? 'Objetivos activos' : 'Número de acciones'}</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{isGcg ? activeObjectiveCount : tasks.length}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">{isGcg ? 'Dentro de su periodo de vigencia' : 'Acciones estratégicas registradas'}</p></Card>
+            <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Indicadores activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{scopedIndicators.length}</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><div className="border-t border-slate-100 pt-3 mt-3"><p className="text-sm text-slate-600">Avance de indicadores <span className="font-semibold text-slate-900">{indicatorProgress}%</span></p><p className="text-xs text-slate-500 mt-1">{indicatorReporting.reported} de {indicatorReporting.total} indicadores con medición</p><ProgressBar progress={indicatorProgress} status="En progreso" /></div></Card>
+            <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Proyectos registrados</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{scopedProjects.length}</h3><FolderKanban className="w-6 h-6 text-blue-600" /></div><div className="border-t border-slate-100 pt-3 mt-3"><p className="text-sm text-slate-600">Avance de proyectos <span className="font-semibold text-slate-900">{projectsProgress}%</span></p><p className="text-xs text-slate-500 mt-1">Proyectos PMO</p><ProgressBar progress={projectsProgress} status="En progreso" /></div></Card>
+            <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">{isGcg ? 'Objetivos activos' : 'Número de acciones'}</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{isGcg ? activeObjectiveCount : scopedTasks.length}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">{isGcg ? 'Dentro de su periodo de vigencia' : 'Acciones estratégicas registradas'}</p></Card>
             <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Indicadores sin medición</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{overdueIndicators}</h3><Clock className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-slate-500 mt-3">Pendientes de su primer reporte</p></Card>
           </> : <>
             <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Avance estratégico</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{averageProgress}%</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><p className="text-xs text-slate-500 mt-3">Promedio de objetivos activos</p></Card>
-            <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Objetivos activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{objectives.length}</h3><Target className="w-6 h-6 text-blue-600" /></div><p className="text-xs text-slate-500 mt-3">En seguimiento este periodo</p></Card>
+            <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Objetivos activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{scopedObjectives.length}</h3><Target className="w-6 h-6 text-blue-600" /></div><p className="text-xs text-slate-500 mt-3">En seguimiento este periodo</p></Card>
             {!isGeneralManager && <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">Objetivos cumplidos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{fulfilled}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">Resultados logrados</p></Card>}
             {!isGeneralManager && <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Alertas de riesgo</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{atRisk}</h3><AlertCircle className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-amber-700 mt-3">Requieren atención</p></Card>}
           </>}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div>{!isGeneralManager && <button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button>}</div><ObjectiveProgressList objectives={objectives} /></Card>
+          <Card className="xl:col-span-2 p-6"><div className="flex items-center justify-between mb-6"><div><h2 className="text-lg font-bold text-slate-900">Avance por objetivo</h2><p className="text-sm text-slate-500">Progreso acumulado del plan estratégico</p></div>{!isGeneralManager && <button onClick={() => navigateTo('objectives', 'Objetivos')} className="text-sm font-semibold text-[#D71920] hover:underline">Ver objetivos</button>}</div><ObjectiveProgressList objectives={scopedObjectives} /></Card>
           {(isResponsibleManager || isGcg) ? <Card className="p-6"><div><h2 className="text-lg font-bold text-slate-900">Estado de indicadores</h2><p className="text-sm text-slate-500">Resumen de la última medición registrada.</p></div><div className="grid grid-cols-1 gap-3 mt-5"><div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center justify-between"><div><p className="text-sm font-semibold text-green-800">En meta</p><p className="text-xs text-green-700 mt-0.5">Reportados dentro de la meta</p></div><span className="text-2xl font-bold text-green-700">{indicatorsInTarget}</span></div><div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between"><div><p className="text-sm font-semibold text-red-800">Fuera de meta</p><p className="text-xs text-red-700 mt-0.5">Reportados fuera de la meta</p></div><span className="text-2xl font-bold text-red-700">{indicatorsOutOfTarget}</span></div><div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between"><div><p className="text-sm font-semibold text-amber-800">Vencido</p><p className="text-xs text-amber-700 mt-0.5">Aún no tienen reporte</p></div><span className="text-2xl font-bold text-amber-700">{overdueIndicators}</span></div></div></Card> : <Card className="p-6"><div className="flex items-start justify-between gap-2"><div><h2 className="text-lg font-bold text-slate-900">Estado del portafolio</h2><p className="text-sm text-slate-500">Haz clic en una categoría para filtrar las alertas.</p></div>{portfolioFilter && <button onClick={() => setPortfolioFilter(null)} className="text-xs font-semibold text-[#D71920]">Limpiar</button>}</div><div className="h-56 mt-2"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} paddingAngle={4} cursor="pointer" onClick={(entry) => setPortfolioFilter(portfolioFilter === entry.name ? null : entry.name)}>{distribution.map(item => <Cell key={item.name} fill={item.color} opacity={!portfolioFilter || portfolioFilter === item.name ? 1 : .35} />)}</Pie><Tooltip /><Legend iconType="circle" /></PieChart></ResponsiveContainer></div></Card>}
         </div>
 
@@ -419,10 +435,10 @@ export default function App() {
   };
 
   const ObjectivesView = () => {
-    const activeObs = activeObjectives(objectives).length;
-    const registeredIndicators = indicators.length;
-    const measuredIndicators = reportedProgress(indicators, reports).reported;
-    const riskInds = attentionIndicators(indicators, reports, corrective.analyses);
+    const activeObs = activeObjectives(scopedObjectives).length;
+    const registeredIndicators = scopedIndicators.length;
+    const measuredIndicators = reportedProgress(scopedIndicators, scopedReports).reported;
+    const riskInds = attentionIndicators(scopedIndicators, scopedReports, corrective.analyses);
 
     return (
       <div className="space-y-8 fade-in">
@@ -468,7 +484,7 @@ export default function App() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Proyectos registrados</p>
-                <h3 className="text-3xl font-bold text-slate-900">{projects.length}</h3>
+                <h3 className="text-3xl font-bold text-slate-900">{scopedProjects.length}</h3>
               </div>
               <div className="p-2 bg-teal-50 rounded-lg"><FolderKanban className="w-5 h-5 text-teal-600" /></div>
             </div>
@@ -485,7 +501,7 @@ export default function App() {
             </div>
             
             <div className="grid gap-4">
-              {objectives.map(obj => {
+              {scopedObjectives.map(obj => {
                 const owner = availableUsers.find(u => u.id === obj.ownerId);
                 const objProjects = projects.filter(p => p.objectiveId === obj.id);
                 const objIndicators = indicators.filter(i => i.objectiveId === obj.id);
@@ -616,12 +632,14 @@ export default function App() {
 
   const ObjectiveDetailView = () => {
     const obj = objectives.find(o => o.id === selectedObjectiveId);
-    if (!obj) return null;
+    const [activeTab, setActiveTab] = useState('summary');
+    if (!obj || (isManagerScoped && !scopedObjectives.some(objective => objective.id === obj.id))) {
+      return <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">No tienes acceso a este objetivo.</div>;
+    }
     const owner = availableUsers.find(u => u.id === obj.ownerId);
     const objProjects = projects.filter(p => p.objectiveId === obj.id);
     const objActions = tasks.filter(task => task.objectiveId === obj.id);
     const objIndicators = indicators.filter(i => i.objectiveId === obj.id);
-    const [activeTab, setActiveTab] = useState('summary');
 
     return (
       <div className="fade-in space-y-6">
@@ -650,7 +668,7 @@ export default function App() {
 
         <div className="border-b border-slate-200">
           <div className="flex gap-6 overflow-x-auto whitespace-nowrap pr-2">
-            {[ { id: 'summary', label: 'Resumen', icon: Activity }, { id: 'projects', label: 'Proyectos', icon: FolderKanban, responsibleOnly: true }, { id: 'indicators', label: 'Indicadores', icon: BarChart3, responsibleOnly: true }].filter(tab => !tab.responsibleOnly || isResponsibleManager).map(tab => (
+            {[ { id: 'summary', label: 'Resumen', icon: Activity, visible: true }, { id: 'projects', label: 'Proyectos', icon: FolderKanban, visible: isResponsibleManager }, { id: 'indicators', label: 'Indicadores', icon: BarChart3, visible: isResponsibleManager || isGcg }].filter(tab => tab.visible).map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? 'border-[#1D4ED8] text-[#1D4ED8]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
                 <tab.icon className="w-4 h-4" /> {tab.label}
               </button>
@@ -1052,7 +1070,6 @@ export default function App() {
           <nav className="px-4 space-y-1">
             <button onClick={() => setVisualizationsOpen(open => !open)} aria-expanded={visualizationsOpen} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white"><span>Visualizaciones</span><ChevronRight className={`w-4 h-4 transition-transform ${visualizationsOpen ? 'rotate-90' : ''}`} /></button>
             {visualizationsOpen && <div className="ml-3 pl-3 border-l border-slate-700 space-y-1"><button onClick={() => navigateTo('bio-indicators', 'Indicadores')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'bio-indicators' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Indicadores</button>{!isGcg && <button onClick={() => navigateTo('change-requests', 'Solicitudes de modificación')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'change-requests' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Solicitudes de modificación</button>}</div>}
-            {isGcg && <button onClick={() => navigateTo('new-indicator', 'Crear indicador')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800"><Plus className="w-5 h-5" />Crear indicador</button>}
             <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
