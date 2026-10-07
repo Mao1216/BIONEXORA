@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from './lib/supabase';
 import { sameId, taskEditable, taskNotifiable, validateEvidence } from './lib/correctiveWorkflow';
 import { parseReportPeriod } from './lib/reporting';
@@ -82,7 +83,36 @@ function ActionCard({ action, analysis, workflow, canManage }) {
   return <section className="space-y-3 border-t border-slate-200 pt-4"><div className="flex flex-wrap justify-between gap-3"><div><h4 className="font-semibold">Acción #{action.id} · {action.name}</h4><p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">{action.description}</p><p className="text-xs text-slate-500 mt-2">Responsable: {action.responsible || 'No registrado'} · Fecha fin: {action.due_date || 'No registrada'}</p></div>{editable && <div className="flex flex-wrap gap-2">{!workflow.tasks.some(task => sameId(task.action_id,action.id) && ['En revisión','Aprobado'].includes(task.review_status)) && <button className={secondary} onClick={() => setEditingAction(value=>!value)}>Corregir acción</button>}<button className={secondary} onClick={() => setAddingTask(value => !value)}>Añadir tarea</button></div>}</div>{editingAction && <ActionForm analysis={analysis} action={action} onReload={workflow.reload} onClose={()=>setEditingAction(false)} />}{addingTask && <TaskForm action={action} onReload={workflow.reload} onClose={() => setAddingTask(false)} />}{workflow.tasks.filter(task => sameId(task.action_id, action.id)).map(task => <TaskCard key={task.id} {...{ task, action, analysis, workflow, canManage }} />)}{!workflow.tasks.some(task => sameId(task.action_id, action.id)) && <p className="text-sm text-slate-500">Añade las tareas de esta acción correctiva.</p>}</section>;
 }
 function Modal({ title, children, onClose }) {
-  return <div className="fixed inset-0 z-[120] bg-slate-950/50 p-3 sm:p-8 flex items-center justify-center" role="dialog" aria-modal="true" aria-label={title}><div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col"><header className="bg-slate-600 text-white px-5 py-3 flex items-center justify-between"><h2 className="text-lg font-medium">{title}</h2><button aria-label="Cerrar" className="text-2xl leading-none" onClick={onClose}>×</button></header><div className="overflow-y-auto p-5">{children}</div></div></div>;
+  return createPortal(<div className="fixed inset-0 z-[120] bg-slate-950/50 p-3 sm:p-8 flex items-center justify-center" role="dialog" aria-modal="true" aria-label={title}><div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col"><header className="bg-slate-600 text-white px-5 py-3 flex items-center justify-between"><h2 className="text-lg font-medium">{title}</h2><button aria-label="Cerrar" className="text-2xl leading-none" onClick={onClose}>×</button></header><div className="overflow-y-auto p-5">{children}</div></div></div>, document.body);
+}
+const whyLevels = [
+  ['Causa superficial', 'bg-rose-500'],
+  ['Causa superficial', 'bg-rose-500'],
+  ['Causa profunda', 'bg-orange-400'],
+  ['Causa más profunda', 'bg-amber-400'],
+  ['Causa raíz', 'bg-emerald-400'],
+];
+function FiveWhysModal({ report, analysis, workflow, canManage, onClose, onContinue }) {
+  const initial = Array.isArray(analysis?.five_whys) && analysis.five_whys.length === 5 ? analysis.five_whys : ['', '', '', '', ''];
+  const [answers, setAnswers] = useState(initial);
+  const operation = useOperation(workflow.reload);
+  const editable = canManage && (!analysis || taskEditable({ review_status: 'Borrador' }, analysis));
+  const complete = answers.every(answer => answer.trim());
+  const save = async event => {
+    event.preventDefault();
+    if (!editable) { onContinue(); return; }
+    if (await operation.run(() => rpc('save_five_whys', { measurement: report.id, answers }))) onContinue();
+  };
+  return <Modal title="Registro de análisis de causas" onClose={onClose}><form onSubmit={save} className="space-y-1">
+    {whyLevels.map(([level, color], index) => <React.Fragment key={level + index}>
+      <label className="block text-sm font-medium text-slate-800">{index + 1}. ¿Por qué ocurrió esto? → {level} <span aria-hidden="true" className={`inline-block h-3 w-3 rounded-full align-middle ${color}`}><span className="sr-only">{level}</span></span>
+        <textarea aria-label={`Por qué ${index + 1}: ${level}`} rows={3} required={editable} readOnly={!editable} className={`${field} mt-2 resize-y bg-slate-50`} value={answers[index]} onChange={event => setAnswers(current => current.map((answer, position) => position === index ? event.target.value : answer))} />
+      </label>
+      {index < whyLevels.length - 1 && <div aria-hidden="true" className="h-7 text-center text-4xl font-light leading-7 text-slate-400">↑</div>}
+    </React.Fragment>)}
+    <ErrorMessage message={operation.error} />
+    <footer className="flex justify-end gap-3 border-t pt-4 mt-5"><button type="button" className={secondary} onClick={onClose}>Cerrar</button>{editable ? <button className={primary} disabled={operation.busy || !complete}>Guardar y continuar</button> : <button type="button" className={primary} onClick={onContinue}>Continuar</button>}</footer>
+  </form></Modal>;
 }
 function AnalysisModal({ report, analysis, indicator, objective, workflow, canManage, onClose }) {
   const [tab,setTab]=useState('initial'); const [cause,setCause]=useState(analysis?.cause||''); const [deviation,setDeviation]=useState(analysis?.deviation_description||report.obs||`El resultado ${report.result} ${indicator.unit} del periodo ${report.period} se encuentra fuera de la meta ${indicator.comparator} ${indicator.target} ${indicator.unit}.`); const [complementary,setComplementary]=useState(analysis?.complementary_data||''); const operation=useOperation(workflow.reload);
@@ -97,10 +127,10 @@ function ActionsModal({ analysis, workflow, users=[], canManage, onClose }) {
   return <Modal title={`Crear acciones · ${analysis.code}`} onClose={onClose}><div className="space-y-6">{canManage&&<form onSubmit={save} className="space-y-4"><label className="block text-sm">Nombre de la acción<input className={`${field} mt-1`} required value={name} onChange={e=>setName(e.target.value)}/></label><label className="block text-sm">Acción<textarea rows={5} className={`${field} mt-1`} required value={description} onChange={e=>setDescription(e.target.value)}/></label><div className="grid sm:grid-cols-2 gap-4"><label className="block text-sm">Responsable<select className={`${field} mt-1`} required value={responsible} onChange={e=>setResponsible(e.target.value)}><option value="">Seleccionar responsable</option>{users.map(user=><option key={user.id} value={user.id}>{user.name}</option>)}</select></label><label className="block text-sm">Fecha fin<input type="date" className={`${field} mt-1`} required value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label></div><h3 className="rounded-lg bg-slate-200 px-4 py-2 text-center font-semibold">Datos del avance</h3><p className="text-sm text-slate-500">Después de crear la acción podrás añadir sus tareas, avance y evidencias.</p><ErrorMessage message={operation.error}/><div className="flex justify-end"><button className={primary} disabled={operation.busy}>Guardar acción</button></div></form>}<section className="space-y-4"><h3 className="font-semibold">Acciones registradas</h3>{actions.map(action=><ActionCard key={action.id} {...{action,analysis,workflow,canManage}}/>)}{!actions.length&&<p className="text-sm text-slate-500">Aún no hay acciones registradas.</p>}</section></div></Modal>;
 }
 export function AnalysisHistoryButton({ report, indicator, objective, workflow, canManage }) {
-  const [open,setOpen]=useState(false);const analysis=workflow.analyses.find(item=>sameId(item.report_id,report.id));
+  const [step,setStep]=useState(null);const analysis=workflow.analyses.find(item=>sameId(item.report_id,report.id));
   if(report.status!=='Fuera de meta') return null;
   if(!analysis&&!canManage) return <span className="text-slate-400">Sin análisis</span>;
-  return <><button className="text-blue-700 underline font-medium" onClick={()=>setOpen(true)}>Análisis de causa</button>{open&&<AnalysisModal {...{report,analysis,indicator,objective,workflow,canManage}} onClose={()=>setOpen(false)}/>}</>;
+  return <><button className="text-blue-700 underline font-medium" onClick={()=>setStep('whys')}>Análisis de causa</button>{step==='whys'&&<FiveWhysModal {...{report,analysis,workflow,canManage}} onClose={()=>setStep(null)} onContinue={()=>setStep('details')}/>} {step==='details'&&<AnalysisModal {...{report,analysis,indicator,objective,workflow,canManage}} onClose={()=>setStep(null)}/>}</>;
 }
 export function ActionsHistoryButton({ report, workflow, users, canManage }) {
   const [open,setOpen]=useState(false);const analysis=workflow.analyses.find(item=>sameId(item.report_id,report.id));

@@ -982,20 +982,17 @@ export default function App() {
     const handleSubmit = async (e) => {
       e.preventDefault();
       const calcStatus = calculateIndicatorStatus(formData.result, ind.target, ind.comparator);
-      const { data, error } = await supabase.from('indicator_reports').insert({
-        indicator_id: ind.id,
-        period: formatPeriod(formData.period),
-        result: parseFloat(formData.result),
-        status: calcStatus,
-        registered_date: registrationDate,
-        observations: formData.obs,
-        created_by: session.user.id,
-      }).select().single();
+      setDataError('');
+      const { error } = await supabase.rpc('register_indicator_measurement', {
+        indicator: ind.id,
+        report_period: formatPeriod(formData.period),
+        report_result: parseFloat(formData.result),
+        report_observations: formData.obs || null,
+      });
       if (error) {
-        setDataError('No se pudo registrar el resultado. Inténtalo nuevamente.');
+        setDataError(`No se pudo registrar el resultado: ${error.message || 'inténtalo nuevamente.'}`);
         return;
       }
-      setReports([...reports, toReport(data)]);
       await loadOperationalData();
       notify(`Resultado registrado: indicador ${calcStatus.toLowerCase()}.`, calcStatus === 'En meta' ? 'success' : 'warning');
       navigateTo('indicator-detail', ind.name, { indicatorId: ind.id });
