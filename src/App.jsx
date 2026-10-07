@@ -849,13 +849,12 @@ export default function App() {
   };
 
   const IndicatorFormView = () => {
-    const [objectiveId, setObjectiveId] = useState(selectedObjectiveId || '');
-    const obj = objectives.find(o => String(o.id) === String(objectiveId));
+    const obj = objectives.find(o => String(o.id) === String(selectedObjectiveId));
     const [formData, setFormData] = useState({ name: '', resource: '', formula: '', target: '', unit: '%', comparator: '>=', frequency: 'Mensual', reviewFrequency: 'Mensual', ownerId: objectives.find(o => o.id === selectedObjectiveId)?.ownerId || '' });
 
     const handleSubmit = async (e) => {
       e.preventDefault();
-      if (!isGcg || !obj) { setDataError('Solo GCG puede crear indicadores. Selecciona un objetivo válido.'); return; }
+      if (!isGcg || !obj) { setDataError('Solo GCG puede crear indicadores desde un objetivo válido.'); return; }
       const { data, error } = await supabase.from('indicators').insert({
         objective_id: obj.id,
         name: formData.name,
@@ -885,7 +884,11 @@ export default function App() {
           <h1 className="text-2xl font-bold text-[#0F172A]">Nuevo indicador estratégico</h1>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Select label="Objetivo al que pertenece el indicador *" required options={[{ value: '', label: 'Seleccionar objetivo' }, ...objectives.map(o => ({ value: o.id, label: o.name }))]} value={objectiveId} onChange={e => { setObjectiveId(e.target.value); const objective = objectives.find(o => String(o.id) === e.target.value); setFormData(previous => ({ ...previous, ownerId: objective?.ownerId || '' })); }} />
+          <Card className="p-4 border-blue-100 bg-blue-50/40">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Objetivo asignado</p>
+            <p className="mt-1 font-semibold text-slate-900">{obj?.code ? `${obj.code} · ` : ''}{obj?.name}</p>
+            <p className="mt-1 text-sm text-slate-600">Este indicador quedará vinculado a este objetivo.</p>
+          </Card>
           <Card className="p-6">
             <h3 className="text-sm font-bold text-[#1D4ED8] uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">1. Información General</h3>
             <div className="space-y-4">
