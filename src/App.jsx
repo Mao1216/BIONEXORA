@@ -959,7 +959,7 @@ export default function App() {
                     <td className="px-6 py-4 text-slate-500">{r.registeredDate || r.date}</td>
                     <td className="px-6 py-4 font-bold text-slate-900">{r.result} {ind.unit}</td>
                     <td className="px-6 py-4"><Badge status={r.status}>{r.status}</Badge></td>
-                    <td className="px-6 py-4 text-slate-600 max-w-xs"><p className="truncate mb-2" title={r.obs}>{r.obs || '-'}</p><AnalysisHistoryButton report={r} indicator={ind} objective={obj} workflow={corrective} canManage={isResponsibleManager && canManage} /></td>
+                    <td className="px-6 py-4 text-slate-600 max-w-xs">{r.obs && <p className="truncate mb-2" title={r.obs}>{r.obs}</p>}<AnalysisHistoryButton report={r} indicator={ind} objective={obj} workflow={corrective} canManage={isResponsibleManager && canManage} /></td>
                     <td className="px-6 py-4"><ActionsHistoryButton report={r} workflow={corrective} users={availableUsers} canManage={isResponsibleManager && canManage} /></td>
                   </tr>
                 ))}
