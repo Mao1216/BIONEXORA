@@ -12,7 +12,7 @@ const indicators = [{ id: 1, objectiveId: 1, code: 'IND-26001', name: 'Productiv
 const objectives = [{ id: 1, code: 'OBJ-26001', name: 'Incrementar la productividad' }];
 const reports = [{ id: 1, indicatorId: 1, period: 'Enero,2026', result: 60, status: 'Fuera de meta' }, { id: 2, indicatorId: 1, period: 'Febrero,2026', result: 70, status: 'Fuera de meta' }];
 const data = {
-  analyses: [{ id: 1, report_id: 1, cause: 'Calibración incorrecta del equipo.', status: efficacy ? 'Pendiente de verificación' : 'En proceso', approved_at: efficacy ? '2026-02-01' : null, followup_report_id: efficacy ? 2 : null }],
+  analyses: [{ id: 1, code: 'ANC-26001', report_id: 1, cause: 'Calibración incorrecta del equipo.', deviation_description: 'Resultado fuera de meta.', complementary_data: '', status: efficacy ? 'Pendiente de verificación' : 'En proceso', approved_at: efficacy ? '2026-02-01' : null, followup_report_id: efficacy ? 2 : null }],
   actions: [{ id: 1, analysis_id: 1, name: 'Recalibrar los equipos', description: 'Restablecer los parámetros y capacitar al personal.' }],
   tasks: [{ id: 1, action_id: 1, name: 'Calibración del equipo', description: 'Verificar los parámetros con el patrón certificado.', progress: 100, review_status: gcg ? 'En revisión' : 'Borrador', notified_at: '2026-10-07' }, { id: 2, action_id: 1, name: 'Capacitación del personal', description: 'Capacitar a los operadores en el procedimiento.', progress: 30, review_status: 'Borrador' }],
   evidence: [], events: []

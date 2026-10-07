@@ -16,7 +16,7 @@ import { activeObjectives } from './lib/objectiveViews';
 import BioIndicatorsView from './BioIndicatorsView';
 import ObjectiveProgressList from './ObjectiveProgressList';
 import useCorrectiveWorkflow from './useCorrectiveWorkflow';
-import { IndicatorCorrectiveWorkflow, VerificationsView } from './CorrectiveWorkflow';
+import { AnalysisHistoryButton, ActionsHistoryButton, VerificationsView } from './CorrectiveWorkflow';
 import { attentionIndicators } from './lib/correctiveWorkflow';
 
 const ROLE_LABELS = {
@@ -949,24 +949,24 @@ export default function App() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-                <tr><th className="px-6 py-3">Periodo</th><th className="px-6 py-3">Fecha Reporte</th><th className="px-6 py-3">Resultado</th><th className="px-6 py-3">Estado</th><th className="px-6 py-3">Observaciones</th></tr>
+                <tr><th className="px-6 py-3">Periodo</th><th className="px-6 py-3">Fecha Reporte</th><th className="px-6 py-3">Resultado</th><th className="px-6 py-3">Estado</th><th className="px-6 py-3">Observaciones</th><th className="px-6 py-3">Acciones</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {indReports.length === 0 && <tr><td colSpan="5" className="px-6 py-8 text-center text-slate-500">Aún no existen resultados registrados para este indicador.</td></tr>}
+                {indReports.length === 0 && <tr><td colSpan="6" className="px-6 py-8 text-center text-slate-500">Aún no existen resultados registrados para este indicador.</td></tr>}
                 {[...indReports].reverse().map(r => (
                   <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{r.period}</td>
                     <td className="px-6 py-4 text-slate-500">{r.registeredDate || r.date}</td>
                     <td className="px-6 py-4 font-bold text-slate-900">{r.result} {ind.unit}</td>
                     <td className="px-6 py-4"><Badge status={r.status}>{r.status}</Badge></td>
-                    <td className="px-6 py-4 text-slate-600 max-w-xs truncate" title={r.obs}>{r.obs || '-'}</td>
+                    <td className="px-6 py-4 text-slate-600 max-w-xs"><p className="truncate mb-2" title={r.obs}>{r.obs || '-'}</p><AnalysisHistoryButton report={r} indicator={ind} objective={obj} workflow={corrective} canManage={isResponsibleManager && canManage} /></td>
+                    <td className="px-6 py-4"><ActionsHistoryButton report={r} workflow={corrective} users={availableUsers} canManage={isResponsibleManager && canManage} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </Card>
-        {(isGcg || canManage) && <IndicatorCorrectiveWorkflow indicator={ind} reports={indReports} workflow={corrective} canManage={isResponsibleManager && canManage} />}
         {(isGcg || canReport) && <section aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
       </div>
     );
