@@ -15,6 +15,9 @@ import { reportedProgress } from './lib/indicatorViews';
 import { activeObjectives } from './lib/objectiveViews';
 import BioIndicatorsView from './BioIndicatorsView';
 import ObjectiveProgressList from './ObjectiveProgressList';
+import useCorrectiveWorkflow from './useCorrectiveWorkflow';
+import { IndicatorCorrectiveWorkflow, VerificationsView } from './CorrectiveWorkflow';
+import { attentionIndicators } from './lib/correctiveWorkflow';
 
 const ROLE_LABELS = {
   gerente_responsable: 'Gerente responsable',
@@ -175,6 +178,10 @@ export default function App() {
   const [generalObjectiveFilter, setGeneralObjectiveFilter] = useState('Todos');
   const [selectedRole, setSelectedRole] = useState(null);
   const [session, setSession] = useState(null);
+  const corrective = useCorrectiveWorkflow(session?.user?.id);
+  useEffect(() => {
+    if (['indicator-detail', 'verifications', 'objectives'].includes(currentView)) corrective.reload();
+  }, [currentView, corrective.reload]);
   const [assignedRole, setAssignedRole] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
@@ -224,6 +231,7 @@ export default function App() {
     setIndicators((indicatorsResult.data || []).map(toIndicator));
     setReports((reportsResult.data || []).map(toReport));
     setDataError('');
+    await corrective.reload();
   };
 
   useEffect(() => {
@@ -414,7 +422,7 @@ export default function App() {
     const activeObs = activeObjectives(objectives).length;
     const registeredIndicators = indicators.length;
     const measuredIndicators = reportedProgress(indicators, reports).reported;
-    const riskInds = indicators.filter(i => i.status === 'En riesgo');
+    const riskInds = attentionIndicators(indicators, reports, corrective.analyses);
 
     return (
       <div className="space-y-8 fade-in">
@@ -528,13 +536,13 @@ export default function App() {
             <Card className="p-0 border-yellow-200 shadow-sm">
               <div className="divide-y divide-slate-100">
                 {riskInds.length > 0 ? (
-                  riskInds.map(ind => {
+                  riskInds.map(({ indicator: ind, report: latestReport, label }) => {
                     const obj = objectives.find(o => o.id === ind.objectiveId);
-                    const latestReport = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id), 'desc')[0];
                     return (
-                      <div key={ind.id} className="p-4 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigateTo('indicator-detail', ind.name, { indicatorId: ind.id, objectiveId: obj.id })}>
+                      <div key={ind.id} className="p-4 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigateTo('indicator-detail', ind.name, { indicatorId: ind.id, objectiveId: obj?.id })}>
                         <p className="text-xs text-slate-500 mb-1 truncate">{obj?.name}</p>
                         <h4 className="text-sm font-semibold text-slate-900 mb-2">{ind.code ? `${ind.code} · ` : ''}{ind.name}</h4>
+                        <p className="text-xs text-slate-600 mb-2">{corrective.error ? 'Análisis no disponible' : corrective.loading ? 'Consultando análisis…' : label}</p>
                         <div className="flex justify-between items-center text-sm">
                           <div><span className="text-slate-500 block text-xs">Resultado</span><span className="font-bold text-red-600">{latestReport?.result ?? '—'} {ind.unit}</span></div>
                           <div className="text-right"><span className="text-slate-500 block text-xs">Meta</span><span className="font-medium text-slate-700">{ind.comparator} {ind.target} {ind.unit}</span></div>
@@ -543,7 +551,7 @@ export default function App() {
                     )
                   })
                 ) : (
-                  <div className="p-8 text-center text-slate-500 text-sm">No hay indicadores en riesgo. ¡Buen trabajo!</div>
+                  <div className="p-8 text-center text-slate-500 text-sm">No hay indicadores fuera de meta. ¡Buen trabajo!</div>
                 )}
               </div>
             </Card>
@@ -958,6 +966,7 @@ export default function App() {
             </table>
           </div>
         </Card>
+        {(isGcg || canManage) && <IndicatorCorrectiveWorkflow indicator={ind} reports={indReports} workflow={corrective} canManage={isResponsibleManager && canManage} />}
         {(isGcg || canReport) && <section aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
       </div>
     );
@@ -1052,6 +1061,7 @@ export default function App() {
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
             {isResponsibleManager && <button onClick={() => navigateTo('indicator-status', 'Estatus IND')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'indicator-status' || currentView === 'edit-indicator' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><BarChart3 className="w-5 h-5" /> Estatus IND</button>}
             {isGcg && <button onClick={() => navigateTo('gcg-review', 'Revisión GCG')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Revisión GCG</button>}
+            {isGcg && <button onClick={() => { corrective.reload(); navigateTo('verifications', 'Verificaciones'); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'verifications' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Verificaciones</button>}
           </nav>
         </div>
         <div className="p-4 border-t border-slate-800">
@@ -1078,6 +1088,7 @@ export default function App() {
           {currentView === 'edit-indicator' && <EditIndicatorView />}
           {currentView === 'edit-target' && <EditTargetView />}
           {currentView === 'gcg-review' && isGcg && <ChangeRequests isGcg indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
+          {currentView === 'verifications' && isGcg && <VerificationsView workflow={corrective} indicators={indicators} objectives={objectives} reports={reports} />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'indicator-detail' && <IndicatorDetailView />}
           {currentView === 'report-indicator' && <ReportFormView />}
@@ -1089,6 +1100,7 @@ export default function App() {
         {isGeneralManager ? <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Objetivo</span></button> : <button onClick={() => navigateTo('objectives', 'Objetivos')} className="flex flex-col items-center gap-1 text-slate-500"><Target className="w-5 h-5" /><span className="text-[10px] font-medium">Objetivos</span></button>}
         <button onClick={() => navigateTo('bio-indicators', 'Indicadores')} className="flex flex-col items-center gap-1 text-slate-500"><BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium">Indicadores</span></button>
         <button onClick={() => navigateTo(isGcg ? 'gcg-review' : 'change-requests', isGcg ? 'Revisión GCG' : 'Solicitudes')} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">{isGcg ? 'Revisión GCG' : 'Solicitudes'}</span></button>
+        {isGcg && <button onClick={() => { corrective.reload(); navigateTo('verifications', 'Verificaciones'); }} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">Verificaciones</span></button>}
       </div>
     </div>
   );

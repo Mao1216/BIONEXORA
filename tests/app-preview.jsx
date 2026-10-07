@@ -20,6 +20,13 @@ if (new URLSearchParams(window.location.search).has('ranking')) {
   reports.push({ ...reports[3], id: 5, period: 'Marzo,2026', result: 97 });
 }
 const tables = { profiles: [{ email: session.user.email, role }], organization_people: [], objectives, indicators, indicator_reports: reports, projects: [{ id: 1, objective_id: 1, name: 'Proyecto de prueba', status: 'En progreso', progress: 30, owner_email: session.user.email }], strategic_actions: [], indicator_change_requests: [] };
+if (new URLSearchParams(window.location.search).has('corrective')) {
+  indicators[0].status = 'Fuera de meta'; reports[3].result = 70; reports[3].status = 'Fuera de meta';
+  tables.cause_analyses = [{ id: 1, report_id: 4, cause: 'Calibración incorrecta del equipo.', status: 'En proceso', created_at: '2026-10-07T12:00:00Z' }];
+  tables.corrective_actions = [{ id: 1, analysis_id: 1, name: 'Recalibrar equipos', description: 'Restablecer los parámetros.', created_at: '2026-10-07T12:00:00Z' }];
+  tables.corrective_tasks = [{ id: 1, action_id: 1, name: 'Calibrar equipo', description: 'Verificar parámetros.', progress: 100, review_status: 'En revisión', notified_at: '2026-10-07T12:00:00Z', created_at: '2026-10-07T12:00:00Z' }];
+  tables.corrective_evidence = []; tables.corrective_events = [];
+}
 supabase.from = table => {
   const query = { select: () => query, eq: () => query, order: async () => ({ data: tables[table] || [], error: null }), maybeSingle: async () => ({ data: { role }, error: null }), insert: () => { throw new Error('La prueba local no permite escrituras.'); }, update: () => { throw new Error('La prueba local no permite escrituras.'); } };
   return query;
