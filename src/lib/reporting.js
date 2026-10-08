@@ -12,5 +12,5 @@ export function comparisonData(reports, { indicatorId, year = '', month = '' }) 
   return reports.map(report => ({ report, period: parseReportPeriod(report.period) }))
     .filter(item => item.period && String(item.report.indicatorId) === String(indicatorId) && (!year || item.period.year === year) && (!month || item.period.month === month))
     .sort((a, b) => a.period.order - b.period.order)
-    .map(({ report }) => ({ period: report.period.replace(',', ' '), resultado: report.result }));
+    .map(({ report }) => ({ period: report.period.replace(',', ' '), resultado: report.status === 'Sin datos' ? null : report.result }));
 }

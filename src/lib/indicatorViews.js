@@ -8,7 +8,7 @@ export function reportedProgress(indicators, reports) {
 
 export function measurementSeries(reports) {
   return [...reports].sort((a, b) => (parseReportPeriod(a.period)?.order || 0) - (parseReportPeriod(b.period)?.order || 0) || String(a.created_at || '').localeCompare(String(b.created_at || '')) || Number(a.id) - Number(b.id))
-    .map(report => ({ period: report.period.replace(',', ' '), resultado: Number(report.result), meta: report.measurement_target == null ? null : Number(report.measurement_target) }));
+    .map(report => ({ period: report.period.replace(',', ' '), resultado: report.result == null || report.status === 'Sin datos' ? null : Number(report.result), meta: report.measurement_target == null ? null : Number(report.measurement_target) }));
 }
 
 export function measurementTicks(data, target) {
@@ -24,7 +24,7 @@ const MONTH_ABBREVIATIONS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'A
 export function weightedMeasurementValue(reports, year, referenceYear = new Date().getFullYear()) {
   const rows = reports
     .map(report => ({ report, period: parseReportPeriod(report.period) }))
-    .filter(item => item.period && (!year || item.period.year === String(year)) && Number.isFinite(Number(item.report.result)))
+    .filter(item => item.period && (!year || item.period.year === String(year)) && item.report.result != null && item.report.status !== 'Sin datos' && Number.isFinite(Number(item.report.result)))
     .sort((a, b) => a.period.order - b.period.order);
   if (!rows.length) return { value: null, label: 'Valor ponderado', count: 0 };
 

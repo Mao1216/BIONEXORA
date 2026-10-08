@@ -32,6 +32,13 @@ test('la serie de metas conserva la meta histórica de cada medición', () => {
   assert.deepEqual(series.map(row => row.meta), [20, 20, 18]);
 });
 
+test('Sin datos no se convierte en cero ni se incluye en el promedio', () => {
+  const reports = [{ period: 'Enero,2026', result: null, status: 'Sin datos' }, { period: 'Febrero,2026', result: 20 }, { period: 'Marzo,2026', result: 0 }];
+  assert.equal(measurementSeries(reports)[0].resultado, null);
+  assert.equal(weightedMeasurementValue(reports, '2026').value, 10);
+  assert.equal(weightedMeasurementValue(reports, '2026').count, 2);
+});
+
 test('valor ponderado promedia las mediciones del año y rotula periodos completos', () => {
   const partial = weightedMeasurementValue([{ period: 'Enero,2026', result: 10 }, { period: 'Febrero,2026', result: 20 }, { period: 'Marzo,2026', result: 30 }], '2026', 2026);
   assert.deepEqual(partial, { value: 20, label: 'Valor ponderado Ene - Mar 2026', count: 3 });

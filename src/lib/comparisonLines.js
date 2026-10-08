@@ -13,7 +13,7 @@ export function comparisonLines(reports, filtersA, filtersB) {
       const monthIndex = MONTHS.findIndex(month => month.toLowerCase() === period.month);
       const order = alignMonths ? monthIndex : period.order;
       const row = rows.get(order) || { order, period: alignMonths ? MONTHS[monthIndex] : `${MONTHS[monthIndex]} ${period.year}`, a: null, b: null };
-      row[key] = Number(report.result);
+      row[key] = report.result == null || report.status === 'Sin datos' ? null : Number(report.result);
       row[`${key}Period`] = report.period.replace(',', ' ');
       rows.set(order, row);
     }

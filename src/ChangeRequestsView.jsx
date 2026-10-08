@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { requestGroups, requestStatus } from './lib/requestViews';
 
-const labels = { target: 'Meta', comparator: 'Comparador', result: 'Resultado', name: 'Nombre', measurement_target: 'Meta histórica', measurement_comparator: 'Comparador histórico' };
+const labels = { period: 'Periodo', target: 'Meta', comparator: 'Comparador', result: 'Resultado', name: 'Nombre', measurement_target: 'Meta histórica', measurement_comparator: 'Comparador histórico' };
 function Values({ values }) {
   return <dl className="space-y-2">{Object.entries(values || {}).map(([key, value]) => <div key={key} className="flex flex-wrap justify-between gap-2"><dt className="text-slate-500">{labels[key] || key}</dt><dd className="font-medium text-slate-900 break-words">{String(value ?? '—')}</dd></div>)}{!Object.keys(values || {}).length && <p className="text-slate-400">Sin datos.</p>}</dl>;
 }
 
-export default function ChangeRequestsView({ isGcg, indicators, onReload, onError }) {
+export default function ChangeRequestsView({ isGcg, indicators, users = [], onReload, onError }) {
   const [requests, setRequests] = useState([]);
   const [history, setHistory] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -34,10 +34,13 @@ export default function ChangeRequestsView({ isGcg, indicators, onReload, onErro
     {loading ? <p className="p-8 text-center text-slate-500">Cargando solicitudes…</p> : errorMessage ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800"><p>No se pudieron cargar las solicitudes: {errorMessage}</p><button className="mt-3 underline" onClick={load}>Reintentar</button></div> : <>
       <p className="text-sm text-slate-500">{visible.length} {history ? 'solicitudes resueltas' : 'solicitudes en revisión'}</p>
       {visible.map(request => {
+        const email = (request.requested_email || '').toLowerCase();
+        const person = users.find(user => (user.email || user.id || '').toLowerCase() === email);
+        const requester = email === 'sig@biomont.com.pe' ? 'SIG' : person?.full_name || person?.name || 'Usuario registrado';
         const indicator = indicators.find(item => item.id === request.indicator_id);
         const status = requestStatus(request.status);
         return <article key={request.id} className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 space-y-5">
-          <div className="flex flex-col sm:flex-row justify-between gap-3"><div><p className="text-xs font-semibold text-blue-700">Solicitud #{request.id} · {indicator?.code}</p><h2 className="text-lg font-semibold text-slate-900 mt-1">{indicator?.name || 'Indicador no disponible'}</h2><p className="text-sm text-slate-500 mt-1">{request.kind === 'target' ? 'Cambio de meta' : request.kind === 'report' ? 'Corrección de medición' : request.kind === 'delete_report' ? 'Eliminación de reporte' : 'Cambio de nombre'} · Enviada: {formatDate(request.created_at)}</p><p className="text-sm text-slate-600 mt-1">Solicitada por: <strong>{request.requested_email || 'Usuario registrado'}</strong>{request.proposed?.period ? ` · Periodo: ${request.proposed.period}` : ''}</p></div><span className={`h-fit self-start rounded-full px-3 py-1 text-xs font-semibold ${request.status === 'Aprobado' ? 'bg-green-50 text-green-700' : request.status === 'Rechazado' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{status}</span></div>
+          <div className="flex flex-col sm:flex-row justify-between gap-3"><div><p className="text-xs font-semibold text-blue-700">Solicitud #{request.id} · {indicator?.code}</p><h2 className="text-lg font-semibold text-slate-900 mt-1">{indicator?.name || 'Indicador no disponible'}</h2><p className="text-sm text-slate-500 mt-1">{request.kind === 'target' ? 'Cambio de meta' : request.kind === 'report' ? 'Corrección de medición' : request.kind === 'delete_report' ? 'Eliminación de reporte' : 'Cambio de nombre'} · Enviada: {formatDate(request.created_at)}</p><p className="text-sm text-slate-600 mt-1">Solicitada por: <strong>{requester}</strong>{request.proposed?.period ? ` · Periodo: ${request.proposed.period}` : ''}</p></div><span className={`h-fit self-start rounded-full px-3 py-1 text-xs font-semibold ${request.status === 'Aprobado' ? 'bg-green-50 text-green-700' : request.status === 'Rechazado' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{status}</span></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"><section className="rounded-xl bg-slate-50 border border-slate-200 p-4"><h3 className="font-semibold mb-3">Valor al enviar la solicitud</h3><Values values={request.previous} /></section><section className="rounded-xl bg-blue-50 border border-blue-100 p-4"><h3 className="font-semibold mb-3">Cambio propuesto</h3><Values values={request.proposed} /></section></div>
           <div><h3 className="text-sm font-semibold text-slate-700">Motivo</h3><p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words">{request.reason}</p></div>
           {history && <><p className="text-xs text-slate-500">Revisada: {formatDate(request.reviewed_at)}</p>{request.review_comment && <p className="text-sm text-slate-600">Comentario GCG: {request.review_comment}</p>}</>}

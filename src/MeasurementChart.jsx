@@ -2,12 +2,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { measurementSeries, measurementTicks } from './lib/indicatorViews';
 import { parseReportPeriod } from './lib/reporting';
+import { supabase } from './lib/supabase';
 
 export default function MeasurementChart({ indicator, reports }) {
   const years = useMemo(() => [...new Set(reports.map(report => parseReportPeriod(report.period)?.year).filter(Boolean))].sort((a, b) => b - a), [reports]);
   const [year, setYear] = useState('');
-  useEffect(() => { if (year && !years.includes(Number(year))) setYear(''); }, [year, years]);
-  const data = measurementSeries(year ? reports.filter(report => parseReportPeriod(report.period)?.year === Number(year)) : reports);
+  const [history, setHistory] = useState([]);
+  useEffect(() => { let active = true; setHistory([]); supabase.from('indicator_target_history').select('*').eq('indicator_id', indicator.id).order('created_at').then(({ data }) => { if (active) setHistory(data || []); }); return () => { active = false; }; }, [indicator.id]);
+  useEffect(() => { if (year && !years.includes(year)) setYear(''); }, [year, years]);
+  const selectedReports = year ? reports.filter(report => parseReportPeriod(report.period)?.year === year) : reports;
+  const resolvedReports = selectedReports.map(report => {
+    if (report.measurement_target != null) return report;
+    const recordedAt = report.created_at || report.registered_date || report.date;
+    const nextChange = recordedAt && history.find(change => new Date(change.created_at) > new Date(recordedAt));
+    return { ...report, measurement_target: nextChange ? nextChange.target : indicator.target };
+  });
+  const data = measurementSeries(resolvedReports);
   const ticks = measurementTicks(data, indicator.target);
   if (!data.length) return <p className="py-16 text-center text-slate-500">Sin mediciones registradas.</p>;
   return <section aria-label={`Gráfica de medición de ${indicator.name}`}>
@@ -19,10 +29,10 @@ export default function MeasurementChart({ indicator, reports }) {
         <YAxis ticks={ticks} interval={0} domain={[ticks[0], ticks[ticks.length - 1]]} width={80} tick={{ fontSize: 11 }} />
         <Tooltip formatter={(value, name) => [`${value} ${indicator.unit}`, name]} />
         <Legend />
-        <Line type="stepAfter" dataKey="meta" name="Meta de la medición" stroke="#16a34a" strokeDasharray="6 4" strokeWidth={2} dot={false} connectNulls={false} />
+        <Line type="stepAfter" dataKey="meta" name="Meta de la medición" stroke="#16a34a" strokeDasharray="6 4" strokeWidth={2} dot={{ r: 2 }} connectNulls={false} />
         <Line type="monotone" dataKey="resultado" name="Resultado" stroke="#1d4ed8" strokeWidth={3} dot={{ r: 4 }} />
       </LineChart>
     </ResponsiveContainer></div>
-    {data.some(row => row.meta === null) && <p className="text-xs text-slate-500">Las mediciones antiguas sin meta histórica no muestran una meta atribuida.</p>}
+    {selectedReports.some(row => row.measurement_target == null) && <p className="text-xs text-slate-500">Para registros sin meta guardada se usa el historial de cambios disponible o la meta actual como referencia.</p>}
   </section>;
 }

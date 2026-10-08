@@ -30,7 +30,7 @@ const toObjective = (row) => ({ ...row, ownerId: row.owner_email, createdDate: r
 const toProject = (row) => ({ ...row, objectiveId: row.objective_id, ownerId: row.owner_email });
 const toAction = (row) => ({ ...row, objectiveId: row.objective_id, projectId: row.project_id, dueDate: row.due_date, ownerId: row.owner_email });
 const toIndicator = (row) => ({ ...row, objectiveId: row.objective_id, ownerId: row.owner_email, approvalStatus: row.approval_status, reviewFrequency: row.review_frequency, target: Number(row.target) });
-const toReport = (row) => ({ ...row, indicatorId: row.indicator_id, date: row.registered_date, result: Number(row.result), obs: row.observations });
+const toReport = (row) => ({ ...row, indicatorId: row.indicator_id, date: row.registered_date, result: row.result == null ? null : Number(row.result), obs: row.observations });
 
 // La aplicación inicia sin datos operativos. Los usuarios registrados crean los
 // objetivos, acciones, indicadores y reportes reales desde Bionexora.
@@ -59,6 +59,7 @@ const getStatusColor = (status) => {
   switch(status?.toLowerCase()) {
     case 'cumplido':
     case 'completado': return 'bg-green-100 text-green-700 border-green-200';
+    case 'sin datos':
     case 'en meta': return 'bg-green-100 text-green-700 border-green-200';
     case 'en riesgo': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
     case 'fuera de meta': return 'bg-red-100 text-red-700 border-red-200';
@@ -72,6 +73,7 @@ const getStatusColor = (status) => {
 const getStatusIcon = (status, className="w-4 h-4") => {
   switch(status?.toLowerCase()) {
     case 'cumplido': return <CheckCircle2 className={`${className} text-green-600`} />;
+    case 'sin datos':
     case 'en meta': return <CheckCircle2 className={`${className} text-green-600`} />;
     case 'en riesgo': return <AlertCircle className={`${className} text-yellow-600`} />;
     case 'fuera de meta': return <AlertCircle className={`${className} text-red-600`} />;
@@ -965,7 +967,7 @@ export default function App() {
               <p className="text-xs text-slate-400 mt-3">Meta: {ind.comparator} {ind.target}</p>
             </Card>
             <Card className="p-5 flex flex-col justify-center items-center text-center border-t-4 border-t-blue-500">
-              <div className="mb-2 flex w-full items-center justify-between gap-2"><p className="text-sm font-medium text-slate-500">Valor ponderado</p><select aria-label="Año del valor ponderado" className="max-w-24 rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600" value={activeWeightedYear} onChange={event => setWeightedYear(event.target.value)} disabled={!reportYears.length}>{reportYears.map(year => <option key={year} value={year}>{year}</option>)}</select></div>
+              <div className="mb-2 flex w-full items-center justify-center gap-2"><select aria-label="Año del valor ponderado" className="max-w-24 rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600" value={activeWeightedYear} onChange={event => setWeightedYear(event.target.value)} disabled={!reportYears.length}>{reportYears.map(year => <option key={year} value={year}>{year}</option>)}</select></div>
               <div className="text-4xl font-bold text-slate-900">{weightedDisplay} <span className="text-xl text-slate-500 font-normal">{ind.unit}</span></div>
               <p className="mt-3 text-xs text-slate-500">{weighted.label}</p>
               {!!weighted.count && <p className="mt-1 text-xs text-slate-400">{weighted.count} medición{weighted.count === 1 ? '' : 'es'}</p>}
@@ -993,7 +995,7 @@ export default function App() {
                   <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{r.period}</td>
                     <td className="px-6 py-4 text-slate-500">{r.registeredDate || r.date}</td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{r.result} {ind.unit}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{r.result == null ? 'Sin datos' : `${r.result} ${ind.unit}`}</td>
                     <td className="px-6 py-4"><Badge status={r.status}>{r.status}</Badge></td>
                     <td className="px-6 py-4 text-slate-600 max-w-xs">{r.obs && <p className="truncate mb-2" title={r.obs}>{r.obs}</p>}<AnalysisHistoryButton report={r} indicator={ind} objective={obj} workflow={corrective} canManage={isResponsibleManager && canManage} /></td>
                     <td className="px-6 py-4"><ActionsHistoryButton report={r} workflow={corrective} users={availableUsers} canManage={isResponsibleManager && canManage} /></td>
@@ -1010,27 +1012,27 @@ export default function App() {
 
   const ReportFormView = () => {
     const ind = indicators.find(i => i.id === selectedIndicatorId);
-    const [formData, setFormData] = useState({ period: '', result: '', obs: '' });
+    const [formData, setFormData] = useState({ period: '', result: '', obs: '', noData: false });
     const registrationDate = new Date().toLocaleDateString('en-CA');
     const registrationDateLabel = registrationDate.split('-').reverse().join('-');
     const formatPeriod = (value) => { const [year, month] = value.split('-'); const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']; return value ? `${months[Number(month) - 1]},${year}` : ''; };
 
     const handleSubmit = async (e) => {
       e.preventDefault();
-      const calcStatus = calculateIndicatorStatus(formData.result, ind.target, ind.comparator);
+      const calcStatus = formData.noData ? 'Sin datos' : calculateIndicatorStatus(formData.result, ind.target, ind.comparator);
       setDataError('');
       const { error } = await supabase.rpc('register_indicator_measurement', {
         indicator: ind.id,
         report_period: formatPeriod(formData.period),
-        report_result: parseFloat(formData.result),
-        report_observations: formData.obs || null,
+        report_result: formData.noData ? null : parseFloat(formData.result),
+        report_observations: formData.noData ? null : formData.obs || null,
       });
       if (error) {
         setDataError(`No se pudo registrar el resultado: ${error.message || 'inténtalo nuevamente.'}`);
         return;
       }
       await loadOperationalData();
-      notify(`Resultado registrado: indicador ${calcStatus.toLowerCase()}.`, calcStatus === 'En meta' ? 'success' : 'warning');
+      notify(`Resultado registrado: indicador ${calcStatus.toLowerCase()}.`, ['En meta', 'Sin datos'].includes(calcStatus) ? 'success' : 'warning');
       navigateTo('indicator-detail', ind.name, { indicatorId: ind.id });
     };
 
@@ -1047,11 +1049,12 @@ export default function App() {
           </div>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><Input label="Periodo de Registro *" type="month" required value={formData.period} onChange={e => setFormData({...formData, period: e.target.value})} /><div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Fecha de registro</label><div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">{registrationDateLabel}</div></div></div>
-            <div className="relative">
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.noData} onChange={e => setFormData({ ...formData, noData: e.target.checked })}/>Sin datos para este periodo</label>
+            {!formData.noData && <div className="relative">
               <Input label={`Resultado obtenido (${ind?.unit}) *`} type="number" step="0.01" required className="text-lg" value={formData.result} onChange={e => setFormData({...formData, result: e.target.value})} />
               {formData.result && <div className="absolute right-3 top-9"><Badge status={calculateIndicatorStatus(formData.result, ind.target, ind.comparator)}>{calculateIndicatorStatus(formData.result, ind.target, ind.comparator)}</Badge></div>}
-            </div>
-            <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Observaciones (Opcional)</label><textarea className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm" rows={3} value={formData.obs} onChange={e => setFormData({...formData, obs: e.target.value})} /></div>
+            </div>}
+            {!formData.noData && <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-slate-700">Observaciones (Opcional)</label><textarea className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm" rows={3} value={formData.obs} onChange={e => setFormData({...formData, obs: e.target.value})} /></div>}
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
               <Button type="button" variant="ghost" onClick={() => navigateTo('indicator-detail', ind.name, { indicatorId: ind.id })}>Cancelar</Button>
               <Button type="submit">Guardar Registro</Button>
@@ -1109,7 +1112,7 @@ export default function App() {
           {dataError && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3"><span>{dataError}</span><button onClick={() => setDataError('')} className="font-semibold shrink-0">Cerrar</button></div>}
           {currentView === 'dashboard' && <><MonitorView />{isGcg && <ComparisonCharts indicators={indicators} reports={reports} />}</>}
           {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} users={availableUsers} />}
-          {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
+          {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
           {currentView === 'objective-detail' && <ObjectiveDetailView />}
@@ -1119,7 +1122,7 @@ export default function App() {
           {currentView === 'indicator-status' && <AssignedIndicators indicators={indicators} objectives={objectives} ownIds={accountIdentities(session.user.email, organizationPeople)} isSuperAdmin={isSuperAdmin} onSelect={i => navigateTo('indicator-detail', i.name, { indicatorId: i.id })} />}
           {currentView === 'edit-indicator' && <EditIndicatorView />}
           {currentView === 'edit-target' && <EditTargetView />}
-          {currentView === 'gcg-review' && isGcg && <ChangeRequests isGcg indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
+          {currentView === 'gcg-review' && isGcg && <ChangeRequests isGcg indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'out-of-target' && isGcg && <OutOfTargetView workflow={corrective} indicators={indicators} objectives={objectives} reports={reports} onSelect={indicator => navigateTo("indicator-detail", indicator.name, { indicatorId: indicator.id })} />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'indicator-detail' && <IndicatorDetailView />}
