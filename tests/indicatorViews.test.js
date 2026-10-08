@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterIndicators, measurementSeries, measurementTicks, reportedProgress, creationYear } from '../src/lib/indicatorViews.js';
+import { filterIndicators, measurementSeries, measurementTicks, reportedProgress, creationYear, weightedMeasurementValue } from '../src/lib/indicatorViews.js';
 import { requestGroups, requestStatus } from '../src/lib/requestViews.js';
 
 test('avance counts reported indicators regardless of target and without duplicates', () => {
@@ -30,6 +30,13 @@ test('la serie de metas conserva la meta histórica de cada medición', () => {
     { id: 2, period: 'Setiembre,2026', result: 19, measurement_target: 20 },
   ]);
   assert.deepEqual(series.map(row => row.meta), [20, 20, 18]);
+});
+
+test('valor ponderado promedia las mediciones del año y rotula periodos completos', () => {
+  const partial = weightedMeasurementValue([{ period: 'Enero,2026', result: 10 }, { period: 'Febrero,2026', result: 20 }, { period: 'Marzo,2026', result: 30 }], '2026', 2026);
+  assert.deepEqual(partial, { value: 20, label: 'Valor ponderado Ene - Mar 2026', count: 3 });
+  const complete = weightedMeasurementValue(Array.from({ length: 12 }, (_, index) => ({ period: `${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][index]},2026`, result: 12 })), '2026', 2027);
+  assert.deepEqual(complete, { value: 12, label: 'Valor del año 2026', count: 12 });
 });
 
 test('Y axis includes current and historical target values even outside measured results', () => {

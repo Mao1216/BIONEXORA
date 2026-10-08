@@ -11,7 +11,7 @@ import { accountIdentities, indicatorAccess } from './lib/responsibility';
 import { ComparisonCharts, IndicatorControls, AssignedIndicators } from './Governance';
 import ChangeRequests from './ChangeRequestsView';
 import MeasurementChart from './MeasurementChart';
-import { reportedProgress } from './lib/indicatorViews';
+import { reportedProgress, weightedMeasurementValue } from './lib/indicatorViews';
 import { activeObjectives } from './lib/objectiveViews';
 import BioIndicatorsView from './BioIndicatorsView';
 import ObjectiveProgressList from './ObjectiveProgressList';
@@ -925,11 +925,16 @@ export default function App() {
   };
 
   const IndicatorDetailView = () => {
+    const [weightedYear, setWeightedYear] = useState('');
     const ind = indicators.find(i => i.id === selectedIndicatorId);
     const obj = objectives.find(o => o.id === ind?.objectiveId);
     if (!ind) return null;
     const indReports = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id));
     const latestReport = indReports[indReports.length - 1];
+    const reportYears = [...new Set(indReports.map(report => reportPeriodTime(report) ? String(new Date(reportPeriodTime(report)).getUTCFullYear()) : '').filter(Boolean))].sort((a, b) => Number(b) - Number(a));
+    const activeWeightedYear = reportYears.includes(weightedYear) ? weightedYear : (reportYears[0] || '');
+    const weighted = weightedMeasurementValue(indReports, activeWeightedYear);
+    const weightedDisplay = weighted.value === null ? '—' : (Number.isInteger(weighted.value) ? weighted.value : Number(weighted.value.toFixed(2)));
     const isApproved = ind.approvalStatus === 'Aprobado';
     const ownIds = accountIdentities(session.user.email, organizationPeople);
     const { canManage, canReport } = indicatorAccess(ind, obj, ownIds, isSuperAdmin);
@@ -939,7 +944,7 @@ export default function App() {
         <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
           <span className="cursor-pointer hover:text-[#1D4ED8]" onClick={() => navigateTo('objective-detail', obj?.name, { objectiveId: obj?.id })}>Objetivo</span> <ChevronRight className="w-3 h-3" /> <span className="font-medium text-slate-900">Indicador</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="md:col-span-2 space-y-2">
             <p className="text-xs font-semibold text-blue-700 mb-2">{ind.code}</p>
             <h1 className="text-2xl font-bold text-[#0F172A]">{ind.name}</h1>
@@ -950,12 +955,20 @@ export default function App() {
               <div><span className="font-medium">Frecuencia:</span> {ind.frequency}</div>
             </div>
           </div>
-          <Card className={`p-6 flex flex-col justify-center items-center text-center border-t-4 ${latestReport?.status === 'Cumplido' ? 'border-t-green-500' : latestReport?.status === 'En riesgo' ? 'border-t-yellow-500' : 'border-t-slate-300'}`}>
-             <p className="text-sm font-medium text-slate-500 mb-2">Último reporte</p>
-             <div className="text-4xl font-bold text-slate-900 mb-2">{latestReport?.result || '-'} <span className="text-xl text-slate-500 font-normal">{ind.unit}</span></div>
-             <Badge status={latestReport?.status || 'Sin reporte'}>{latestReport?.status || 'Sin reporte'}</Badge>
-             <p className="text-xs text-slate-400 mt-3">Meta: {ind.comparator} {ind.target}</p>
-          </Card>
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card className={`p-6 flex flex-col justify-center items-center text-center border-t-4 ${latestReport?.status === 'En meta' ? 'border-t-green-500' : latestReport?.status === 'Fuera de meta' ? 'border-t-red-500' : 'border-t-slate-300'}`}>
+              <p className="text-sm font-medium text-slate-500 mb-2">Último reporte</p>
+              <div className="text-4xl font-bold text-slate-900 mb-2">{latestReport?.result ?? '—'} <span className="text-xl text-slate-500 font-normal">{ind.unit}</span></div>
+              <Badge status={latestReport?.status || 'Sin reporte'}>{latestReport?.status || 'Sin reporte'}</Badge>
+              <p className="text-xs text-slate-400 mt-3">Meta: {ind.comparator} {ind.target}</p>
+            </Card>
+            <Card className="p-5 flex flex-col justify-center items-center text-center border-t-4 border-t-blue-500">
+              <div className="mb-2 flex w-full items-center justify-between gap-2"><p className="text-sm font-medium text-slate-500">Valor ponderado</p><select aria-label="Año del valor ponderado" className="max-w-24 rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600" value={activeWeightedYear} onChange={event => setWeightedYear(event.target.value)} disabled={!reportYears.length}>{reportYears.map(year => <option key={year} value={year}>{year}</option>)}</select></div>
+              <div className="text-4xl font-bold text-slate-900">{weightedDisplay} <span className="text-xl text-slate-500 font-normal">{ind.unit}</span></div>
+              <p className="mt-3 text-xs text-slate-500">{weighted.label}</p>
+              {!!weighted.count && <p className="mt-1 text-xs text-slate-400">{weighted.count} medición{weighted.count === 1 ? '' : 'es'}</p>}
+            </Card>
+          </div>
         </div>
         <Card className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -1077,7 +1090,7 @@ export default function App() {
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
             {isResponsibleManager && <button onClick={() => navigateTo('indicator-status', 'Estatus IND')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'indicator-status' || currentView === 'edit-indicator' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><BarChart3 className="w-5 h-5" /> Estatus IND</button>}
-            {isGcg && <button onClick={() => navigateTo('gcg-review', 'Solicitudes de revisión')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Solicitudes de revisión</button>}
+            {isGcg && <button onClick={() => navigateTo('gcg-review', 'Solicitudes')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Solicitudes</button>}
             {isGcg && <button onClick={() => { corrective.reload(); navigateTo('verifications', 'Verificaciones'); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'verifications' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Verificaciones</button>}
           </nav>
         </div>
