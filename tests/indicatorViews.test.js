@@ -8,9 +8,10 @@ test('avance counts reported indicators regardless of target and without duplica
   assert.equal(reportedProgress([], []).progress, 0);
 });
 
-test('filters combine code/name, objective and creation year in Lima', () => {
-  const indicators = [{ id: 1, code: 'IND-26001', name: 'Productividad', objectiveId: 3, created_at: '2026-10-06T12:00:00Z' }, { id: 2, code: 'IND-25001', name: 'Ventas', objectiveId: 4, created_at: '2025-08-01T12:00:00Z' }];
-  assert.deepEqual(filterIndicators(indicators, { search: 'ind-26001', objectiveId: '3', year: '2026' }).map(item => item.id), [1]);
+test('filters combine code/name, objective and responsible person', () => {
+  const indicators = [{ id: 1, code: 'IND-26001', name: 'Productividad', objectiveId: 3, ownerId: 'molin@biomont.com.pe', created_at: '2026-10-06T12:00:00Z' }, { id: 2, code: 'IND-25001', name: 'Ventas', objectiveId: 4, ownerId: 'jcardenas@biomont.com.pe', created_at: '2025-08-01T12:00:00Z' }];
+  assert.deepEqual(filterIndicators(indicators, { search: 'IND-26001', objectiveId: '3', responsibleId: 'molin@biomont.com.pe' }).map(item => item.id), [1]);
+  assert.deepEqual(filterIndicators(indicators, { search: 'productividad', responsibleId: 'jcardenas@biomont.com.pe' }).map(item => item.id), []);
   assert.equal(filterIndicators(indicators, { search: 'Productividad', objectiveId: '4' }).length, 0);
   assert.equal(creationYear({ created_at: '2027-01-01T02:00:00Z' }), '2026');
 });

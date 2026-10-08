@@ -19,8 +19,17 @@ export function measurementTicks(data, target) {
   return [...new Set([low, low + span / 4, low + span / 2, low + span * 3 / 4, high, ...data.map(row => row.meta), Number(target)].filter(value => value !== null && Number.isFinite(value)).map(value => Number(value.toFixed(4))))].sort((a, b) => a - b);
 }
 
-export function filterIndicators(indicators, { search = '', objectiveId = '', year = '' }) {
-  return indicators.filter(indicator => `${indicator.code || ''} ${indicator.name}`.toLowerCase().includes(search.toLowerCase()) && (!objectiveId || String(indicator.objectiveId) === String(objectiveId)) && (!year || creationYear(indicator) === year));
+const normalizeSearch = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+export function filterIndicators(indicators, { search = '', objectiveId = '', responsibleId = '' }) {
+  const query = normalizeSearch(search);
+  return indicators.filter(indicator => {
+    const searchable = normalizeSearch(`${indicator.code || ''} ${indicator.name || ''}`);
+    const responsible = indicator.ownerId || indicator.owner_email || indicator.reporter_email || '';
+    return searchable.includes(query)
+      && (!objectiveId || String(indicator.objectiveId) === String(objectiveId))
+      && (!responsibleId || String(responsible) === String(responsibleId));
+  });
 }
 
 export function creationYear(entity) {

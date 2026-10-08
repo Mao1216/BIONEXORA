@@ -1088,7 +1088,7 @@ export default function App() {
         <div className="p-6 md:p-8 flex-1 relative z-0">
           {dataError && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3"><span>{dataError}</span><button onClick={() => setDataError('')} className="font-semibold shrink-0">Cerrar</button></div>}
           {currentView === 'dashboard' && <><MonitorView />{isGcg && <ComparisonCharts indicators={indicators} reports={reports} />}</>}
-          {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} />}
+          {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} users={availableUsers} />}
           {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
