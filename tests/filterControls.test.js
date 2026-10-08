@@ -16,6 +16,8 @@ test('chart scale has uniform intervals for decimals, negative values and empty 
 test('requested controls retain search, supplemental reporter and funnel filters', () => {
   const governance = readFileSync(new URL('../src/Governance.jsx', import.meta.url), 'utf8');
   assert.ok(governance.includes('aria-label="Buscar medición"'));
+  assert.ok(governance.includes('matchingReports.map(report => <button'));
+  assert.ok(!governance.includes('aria-label="Medición"'));
   assert.ok(!governance.includes('Reportar personalmente'));
   assert.ok(governance.includes('if (!delegate) return;'));
   for (const file of ['MeasurementChart.jsx', 'ComparisonLines.jsx', 'BioIndicatorsView.jsx']) {
