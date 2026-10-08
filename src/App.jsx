@@ -940,6 +940,7 @@ export default function App() {
     const activeWeightedYear = reportYears[0] || '';
     const weighted = weightedMeasurementValue(indReports, activeWeightedYear);
     const weightedDisplay = weighted.value === null ? '—' : (Number.isInteger(weighted.value) ? weighted.value : Number(weighted.value.toFixed(2)));
+    const weightedStatus = weighted.value === null ? 'Sin reporte' : calculateIndicatorStatus(weighted.value, ind.target, ind.comparator);
     const isApproved = ind.approvalStatus === 'Aprobado';
     const ownIds = accountIdentities(session.user.email, organizationPeople);
     const { canManage, canReport } = indicatorAccess(ind, obj, ownIds, isSuperAdmin);
@@ -968,8 +969,9 @@ export default function App() {
               <p className="text-xs text-slate-400 mt-3">Meta: {ind.comparator} {ind.target}</p>
             </Card>
             <Card className="p-5 flex flex-col justify-center items-center text-center border-t-4 border-t-blue-500">
+              <p className="text-sm font-medium text-slate-500 mb-2">Valor ponderado{activeWeightedYear ? ` ${activeWeightedYear}` : ''}</p>
               <div className="text-4xl font-bold text-slate-900">{weightedDisplay} <span className="text-xl text-slate-500 font-normal">{displayUnit(ind.unit)}</span></div>
-              <p className="mt-3 text-xs text-slate-500">Valor ponderado {activeWeightedYear}</p>
+              {weighted.value !== null && <div className="mt-3"><Badge status={weightedStatus}>{weightedStatus}</Badge></div>}
               {!!weighted.count && <p className="mt-1 text-xs text-slate-400">{weighted.count} medición{weighted.count === 1 ? '' : 'es'}</p>}
             </Card>
           </div>
