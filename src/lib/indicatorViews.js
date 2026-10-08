@@ -15,8 +15,12 @@ export function measurementTicks(data, target) {
   const values = [Number(target), ...data.flatMap(row => [row.resultado, row.meta])].filter(value => value !== null && Number.isFinite(value));
   const low = Math.min(0, ...values);
   const high = Math.max(1, ...values);
-  const span = high - low;
-  return [...new Set([low, low + span / 4, low + span / 2, low + span * 3 / 4, high, ...data.map(row => row.meta), Number(target)].filter(value => value !== null && Number.isFinite(value)).map(value => Number(value.toFixed(4))))].sort((a, b) => a - b);
+  const rawStep = (high - low) / 5;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const step = [1, 2, 2.5, 5, 10].find(value => value * magnitude >= rawStep) * magnitude;
+  const start = Math.floor(low / step) * step;
+  const end = Math.ceil(high / step) * step;
+  return Array.from({ length: Math.round((end - start) / step) + 1 }, (_, index) => Number((start + index * step).toPrecision(12)));
 }
 
 const MONTH_ABBREVIATIONS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];

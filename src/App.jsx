@@ -929,7 +929,7 @@ export default function App() {
   };
 
   const IndicatorDetailView = () => {
-    const [weightedYear, setWeightedYear] = useState('');
+
     const ind = indicators.find(i => i.id === selectedIndicatorId);
     const obj = objectives.find(o => o.id === ind?.objectiveId);
     if (!ind) return null;
@@ -937,7 +937,7 @@ export default function App() {
     const latestReport = indReports[indReports.length - 1];
     const readOnlyDeviation = isGcg && navHistory.at(-2)?.id === 'out-of-target';
     const reportYears = [...new Set(indReports.map(report => reportPeriodTime(report) ? String(new Date(reportPeriodTime(report)).getUTCFullYear()) : '').filter(Boolean))].sort((a, b) => Number(b) - Number(a));
-    const activeWeightedYear = reportYears.includes(weightedYear) ? weightedYear : (reportYears[0] || '');
+    const activeWeightedYear = reportYears[0] || '';
     const weighted = weightedMeasurementValue(indReports, activeWeightedYear);
     const weightedDisplay = weighted.value === null ? '—' : (Number.isInteger(weighted.value) ? weighted.value : Number(weighted.value.toFixed(2)));
     const isApproved = ind.approvalStatus === 'Aprobado';
@@ -968,9 +968,8 @@ export default function App() {
               <p className="text-xs text-slate-400 mt-3">Meta: {ind.comparator} {ind.target}</p>
             </Card>
             <Card className="p-5 flex flex-col justify-center items-center text-center border-t-4 border-t-blue-500">
-              <div className="mb-2 flex w-full items-center justify-center gap-2"><select aria-label="Año del valor ponderado" className="max-w-24 rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600" value={activeWeightedYear} onChange={event => setWeightedYear(event.target.value)} disabled={!reportYears.length}>{reportYears.map(year => <option key={year} value={year}>{year}</option>)}</select></div>
               <div className="text-4xl font-bold text-slate-900">{weightedDisplay} <span className="text-xl text-slate-500 font-normal">{displayUnit(ind.unit)}</span></div>
-              <p className="mt-3 text-xs text-slate-500">{weighted.label}</p>
+              <p className="mt-3 text-xs text-slate-500">Valor ponderado {activeWeightedYear}</p>
               {!!weighted.count && <p className="mt-1 text-xs text-slate-400">{weighted.count} medición{weighted.count === 1 ? '' : 'es'}</p>}
             </Card>
           </div>

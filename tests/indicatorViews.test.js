@@ -46,10 +46,10 @@ test('valor ponderado promedia las mediciones del año y rotula periodos complet
   assert.deepEqual(complete, { value: 12, label: 'Valor del año 2026', count: 12 });
 });
 
-test('Y axis includes current and historical target values even outside measured results', () => {
+test('Y axis uses equal intervals and covers current and historical targets', () => {
   const ticks = measurementTicks([{ resultado: 23, meta: 75 }], 90);
-  assert.ok(ticks.includes(75));
-  assert.ok(ticks.includes(90));
+  assert.ok(ticks[0] <= 23);
+  assert.ok(ticks.every((tick, index) => index === 0 || tick - ticks[index - 1] === ticks[1] - ticks[0]));
   assert.ok(ticks.at(-1) >= 90);
   assert.ok(measurementTicks([{ resultado: -12, meta: -5 }], 0).includes(0));
 });

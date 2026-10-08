@@ -1,3 +1,4 @@
+import FilterPanel from './FilterPanel';
 import { displayUnit } from './lib/units';
 import React, { useState } from 'react';
 import MeasurementChart from './MeasurementChart';
@@ -29,7 +30,7 @@ export default function BioIndicatorsView({ objectives, indicators, reports, use
   };
   return <div className="fade-in space-y-6">
     <header><p className="text-sm font-semibold text-red-600 uppercase">Visualizaciones · Solo lectura</p><h1 className="text-3xl font-bold text-slate-900 mt-1">Indicadores</h1><p className="text-slate-500 mt-2">Filtra el portafolio y selecciona el indicador que deseas consultar.</p></header>
-    <section aria-label="Filtros de indicadores" className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+    <FilterPanel label="Filtros de indicadores">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <label className="text-sm font-medium text-slate-700">Nombre o código<input className={input} placeholder="Ej.: productividad o IND-26001" value={search} onChange={searchIndicators} /><span className="mt-1 block text-xs font-normal text-slate-500">{list.length} indicador{list.length === 1 ? '' : 'es'} encontrado{list.length === 1 ? '' : 's'}</span></label>
         <label className="text-sm font-medium text-slate-700">Objetivo<select className={input} value={objectiveId} onChange={resetSelection(setObjectiveId)}><option value="">Todos los objetivos</option>{objectives.map(item => <option key={item.id} value={item.id}>{item.code ? `${item.code} · ` : ''}{item.name}</option>)}</select></label>
@@ -37,7 +38,7 @@ export default function BioIndicatorsView({ objectives, indicators, reports, use
       </div>
       <label className="block text-sm font-medium text-slate-700">Indicador<select className={input} value={indicatorId} onChange={event => setIndicatorId(event.target.value)}><option value="">Seleccionar indicador ({list.length} disponibles)</option>{list.map(item => <option key={item.id} value={item.id}>{item.code ? `${item.code} · ` : ''}{item.name}</option>)}</select></label>
       {(search || objectiveId || responsibleId || indicatorId) && <button className="text-sm font-medium text-blue-700" onClick={() => { setSearch(''); setObjectiveId(''); setResponsibleId(''); setIndicatorId(''); }}>Limpiar filtros</button>}
-    </section>
+    </FilterPanel>
     {!list.length && <p className="rounded-xl bg-white border p-8 text-center text-slate-500">No hay indicadores que coincidan con estos filtros.</p>}
     {indicator ? <div className="space-y-6">
       <section className="bg-white border border-slate-200 rounded-2xl p-6 grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6">
