@@ -2,7 +2,7 @@ import { displayUnit } from './lib/units';
 import React, { useEffect, useState } from 'react';
 import { 
   LayoutDashboard, Target, FolderKanban, Settings, User, Plus, 
-  ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, ArrowLeft, BarChart3, Calendar, Users, Activity, LogOut
+  ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, ArrowLeft, BarChart3, Calendar, Users, Activity, LogOut, FilePenLine, History
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import biomontLogo from './assets/biomont-logo.png';
@@ -10,7 +10,7 @@ import { supabase } from './lib/supabase';
 import { observeAuthentication } from './lib/authLifecycle';
 import { accountIdentities, indicatorAccess } from './lib/responsibility';
 import { ComparisonCharts, IndicatorControls, AssignedIndicators } from './Governance';
-import ChangeRequests from './ChangeRequestsView';
+import ChangeRequests, { IndicatorRequestFlyout } from './ChangeRequestsView';
 import MeasurementChart from './MeasurementChart';
 import { reportedProgress, weightedMeasurementValue } from './lib/indicatorViews';
 import { activeObjectives } from './lib/objectiveViews';
@@ -178,6 +178,7 @@ export default function App() {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
   const [selectedObjectiveTab, setSelectedObjectiveTab] = useState('summary');
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
+  const [indicatorRequestFlyout, setIndicatorRequestFlyout] = useState(null);
   const [indicatorFilters, setIndicatorFilters] = useState({ search: '', objectiveId: '', responsibleId: '', indicatorId: '' });
   const [selectedActionId, setSelectedActionId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState(null);
@@ -962,7 +963,13 @@ export default function App() {
               <div><span className="font-medium">Frecuencia:</span> {ind.frequency}</div>
             </div>
           </div>
-          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <div className="mb-4 flex flex-wrap justify-end gap-2">
+              {!isGcg && canManage && <button type="button" onClick={() => document.getElementById('indicator-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"><FilePenLine className="h-4 w-4" />Solicitar modificación</button>}
+              <button type="button" onClick={() => setIndicatorRequestFlyout('pending')} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"><Clock className="h-4 w-4 text-amber-600" />En revisión</button>
+              <button type="button" onClick={() => setIndicatorRequestFlyout('history')} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"><History className="h-4 w-4 text-slate-500" />Historial</button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card className={`p-6 flex flex-col justify-center items-center text-center border-t-4 ${latestReport?.status === 'En meta' ? 'border-t-green-500' : latestReport?.status === 'Fuera de meta' ? 'border-t-red-500' : 'border-t-slate-300'}`}>
               <p className="text-sm font-medium text-slate-500 mb-2">Último reporte</p>
               <div className="text-4xl font-bold text-slate-900 mb-2">{latestReport?.result ?? '—'} <span className="text-xl text-slate-500 font-normal">{displayUnit(ind.unit)}</span></div>
@@ -975,6 +982,7 @@ export default function App() {
               {weighted.value !== null && <div className="mt-3"><Badge status={weightedStatus}>{weightedStatus}</Badge></div>}
               {!!weighted.count && <p className="mt-1 text-xs text-slate-400">{weighted.count} medición{weighted.count === 1 ? '' : 'es'}</p>}
             </Card>
+            </div>
           </div>
         </div>
         <Card className="p-6">
@@ -1008,7 +1016,8 @@ export default function App() {
             </table>
           </div>
         </Card>
-        {!readOnlyDeviation && (isGcg || canReport) && <section aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
+        {!readOnlyDeviation && (isGcg || canReport) && <section id="indicator-actions" aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
+        {indicatorRequestFlyout && <IndicatorRequestFlyout indicatorId={ind.id} indicators={indicators} users={organizationPeople} history={indicatorRequestFlyout === 'history'} onClose={() => setIndicatorRequestFlyout(null)} onViewHistory={() => { setIndicatorRequestFlyout(null); navigateTo('indicator-request-history', 'Historial de solicitudes', { indicatorId: ind.id }); }} />}
       </div>
     );
   };
@@ -1117,6 +1126,7 @@ export default function App() {
           {currentView === 'dashboard' && <><MonitorView />{isGcg && <ComparisonCharts indicators={indicators} reports={reports} />}</>}
           {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} users={availableUsers} filters={indicatorFilters} />}
           {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} />}
+          {currentView === 'indicator-request-history' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} indicatorId={selectedIndicatorId} initialHistory />}
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
           {currentView === 'objective-detail' && <ObjectiveDetailView />}
