@@ -1,7 +1,7 @@
-import FilterPanel from './FilterPanel';
 import { displayUnit } from './lib/units';
 import React, { useEffect, useMemo, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { Filter } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { measurementSeries, measurementTicks } from './lib/indicatorViews';
 import { parseReportPeriod } from './lib/reporting';
 import { supabase } from './lib/supabase';
@@ -56,17 +56,15 @@ export default function MeasurementChart({ indicator, reports }) {
   };
   if (!data.length) return <p className="py-16 text-center text-slate-500">Sin mediciones registradas.</p>;
   return <section aria-label={`Gráfica de medición de ${indicator.name}`}>
-    <FilterPanel label="Filtros de tendencia"><div className="flex items-center gap-2 text-sm"><label htmlFor="measurement-year" className="font-medium text-slate-600">Año</label><select id="measurement-year" aria-label="Filtrar tendencia por año" className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={year} onChange={event => setYear(event.target.value)}><option value="">Todos los años</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></div></FilterPanel>
-    <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-slate-600"><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-green-600"></i>Resultado en meta</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-red-600"></i>Resultado fuera de meta</span><span className="flex items-center gap-2"><i className="h-0.5 w-5 bg-slate-900"></i>Meta de la medición</span></div>
-    <div className="h-[21rem] rounded-xl border border-slate-100 bg-gradient-to-b from-slate-50 to-white p-3"><ResponsiveContainer width="100%" height="100%">
+    <div className="mb-4 flex items-center justify-between gap-4"><details className="relative"><summary aria-label="Filtrar tendencia" title="Filtrar tendencia" className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"><Filter className="h-4 w-4" /></summary><div className="absolute left-0 top-full z-30 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"><p className="text-sm font-semibold text-slate-800">Filtrar tendencia</p><label htmlFor="measurement-year" className="mt-3 block text-xs font-medium uppercase tracking-wide text-slate-500">Año<select id="measurement-year" aria-label="Filtrar tendencia por año" className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700" value={year} onChange={event => setYear(event.target.value)}><option value="">Todos los años</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></label></div></details><div className="flex flex-wrap justify-end gap-x-4 gap-y-2 text-xs font-medium text-slate-600"><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-green-600"></i>En meta</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-red-600"></i>Fuera de meta</span><span className="flex items-center gap-2"><i className="h-0.5 w-5 bg-slate-900"></i>Meta</span></div></div>
+    <div className="h-[21rem] rounded-xl border border-slate-100 bg-gradient-to-b from-slate-50 via-white to-white p-3"><ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 24, right: 34, left: 18, bottom: 16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis dataKey="period" padding={{ left: 24, right: 24 }} tickMargin={12} tick={{ fontSize: 11, fill: '#475569' }} axisLine={{ stroke: '#94a3b8' }} />
         <YAxis ticks={ticks} interval={0} domain={[ticks[0], ticks[ticks.length - 1]]} width={80} tickMargin={14} tick={{ fontSize: 11, fill: '#475569' }} axisLine={{ stroke: '#94a3b8' }} />
         <Tooltip cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} content={<MeasurementTooltip unit={displayUnit(indicator.unit)} defaultComparator={indicator.comparator} />} />
-        <Legend />
-        <Line type="stepAfter" dataKey="meta" name={`Meta (${indicator.comparator})`} stroke="#111827" strokeDasharray="6 4" strokeWidth={2} dot={{ r: 2.5, fill: '#111827', stroke: '#111827' }} connectNulls={false} />
-        <Line type="monotone" dataKey="resultado" name="Resultado" stroke="#1d4ed8" strokeWidth={3} dot={props => <ResultDot {...props} />} activeDot={props => <ResultDot {...props} r={6} />} />
+        <Line type="stepAfter" dataKey="meta" name="Meta de la medición" stroke="#111827" strokeDasharray="6 4" strokeWidth={2} dot={{ r: 2.5, fill: '#111827', stroke: '#111827' }} connectNulls={false} />
+        <Line type="monotone" dataKey="resultado" name="Resultado" stroke="#64748b" strokeWidth={2.5} dot={props => <ResultDot {...props} />} activeDot={props => <ResultDot {...props} />} />
       </LineChart>
     </ResponsiveContainer></div>
     {selectedReports.some(row => row.measurement_target == null) && <p className="text-xs text-slate-500">Para registros sin meta guardada se usa el historial de cambios disponible o la meta actual como referencia.</p>}
