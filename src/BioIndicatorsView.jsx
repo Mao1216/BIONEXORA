@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import MeasurementChart from './MeasurementChart';
 import { filterIndicators } from './lib/indicatorViews';
 import { parseReportPeriod } from './lib/reporting';
+import { personName } from './lib/personNames';
 
 const input = 'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm';
 export default function BioIndicatorsView({ objectives, indicators, reports, users = [] }) {
@@ -14,8 +15,7 @@ export default function BioIndicatorsView({ objectives, indicators, reports, use
   const objective = objectives.find(item => item.id === indicator?.objectiveId);
   const responsibles = [...new Map(indicators.map(item => {
     const id = item.ownerId || item.owner_email || item.reporter_email || '';
-    const person = users.find(user => String(user.id) === String(id));
-    return id ? [String(id), person?.name || id] : null;
+    return id ? [String(id), personName(id, users)] : null;
   }).filter(Boolean))].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'es'));
   const rows = reports.filter(report => report.indicatorId === indicator?.id).sort((a, b) => (parseReportPeriod(b.period)?.order || 0) - (parseReportPeriod(a.period)?.order || 0) || Number(b.id) - Number(a.id));
   const latest = rows[0];

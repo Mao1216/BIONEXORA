@@ -201,7 +201,7 @@ export default function App() {
   const isGcg = selectedRole?.name === 'GCG';
   const isSuperAdmin = assignedRole === 'super_admin';
   const availableUsers = [
-    ...organizationPeople.map(person => ({ id: person.id, name: person.full_name, role: person.role, avatar: person.full_name.slice(0, 2).toUpperCase() })),
+    ...organizationPeople.map(person => ({ id: person.id, email: person.email, name: person.full_name, role: person.role, avatar: person.full_name.slice(0, 2).toUpperCase() })),
     ...profiles.filter(profile => !organizationPeople.some(person => person.email && person.email === profile.email)).map(profile => ({
     id: profile.email,
     name: profile.email,
@@ -997,7 +997,7 @@ export default function App() {
                     <td className="px-6 py-4 text-slate-500">{r.registeredDate || r.date}</td>
                     <td className="px-6 py-4 font-bold text-slate-900">{r.result == null ? 'Sin datos' : `${r.result} ${ind.unit}`}</td>
                     <td className="px-6 py-4"><Badge status={r.status}>{r.status}</Badge></td>
-                    <td className="px-6 py-4 text-slate-600 max-w-xs">{r.obs && <p className="truncate mb-2" title={r.obs}>{r.obs}</p>}<AnalysisHistoryButton report={r} indicator={ind} objective={obj} workflow={corrective} canManage={isResponsibleManager && canManage} /></td>
+                    <td className="px-6 py-4 text-slate-600 max-w-xs">{r.obs && <p className="truncate mb-2" title={r.obs}>{r.obs}</p>}<AnalysisHistoryButton report={r} indicator={ind} objective={obj} workflow={corrective} users={availableUsers} canManage={isResponsibleManager && canManage} /></td>
                     <td className="px-6 py-4"><ActionsHistoryButton report={r} workflow={corrective} users={availableUsers} canManage={isResponsibleManager && canManage} /></td>
                   </tr>
                 ))}
