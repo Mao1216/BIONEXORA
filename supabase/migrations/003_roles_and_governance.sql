@@ -4,11 +4,13 @@
 alter table public.objectives alter column category drop not null;
 alter table public.objectives add column if not exists validity_start_year integer;
 alter table public.objectives add column if not exists validity_end_year integer;
+alter table public.objectives drop constraint if exists objectives_validity_years_check;
 alter table public.objectives add constraint objectives_validity_years_check
   check (validity_start_year is null or validity_end_year is null or validity_end_year >= validity_start_year);
 
 alter table public.strategic_actions add column if not exists owner_email text;
 alter table public.indicators add column if not exists review_frequency text;
+alter table public.indicators drop constraint if exists indicators_review_frequency_check;
 alter table public.indicators add constraint indicators_review_frequency_check
   check (review_frequency is null or review_frequency in ('Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual'));
 

@@ -16,7 +16,7 @@ $$;
 create or replace function public.person_matches(person text) returns boolean language sql stable security definer set search_path = public as $$
  select person = lower(auth.jwt()->>'email') or exists(select 1 from organization_people where id::text = person and lower(email) = lower(auth.jwt()->>'email') and active);
 $$;
-alter table public.indicators add column reporter_email text;
+alter table public.indicators add column if not exists reporter_email text;
 create or replace function public.can_manage_reporting(indicator bigint) returns boolean language sql stable security definer set search_path = public as $$
  select exists(select 1 from indicators i join objectives o on o.id = i.objective_id where i.id = indicator and (person_matches(i.owner_email) or person_matches(o.owner_email)));
 $$;
@@ -24,11 +24,17 @@ create or replace function public.can_report(indicator bigint) returns boolean l
  select can_manage_reporting(indicator) or exists(select 1 from indicators where id = indicator and person_matches(reporter_email));
 $$;
 
-drop policy "Authenticated users manage objectives" on public.objectives;
+drop policy if exists "Authenticated users manage objectives" on public.objectives;
+drop policy if exists "Read objectives" on public.objectives;
+drop policy if exists "GCG creates objectives" on public.objectives;
+drop policy if exists "GCG updates objectives" on public.objectives;
 create policy "Read objectives" on public.objectives for select to authenticated using (true);
 create policy "GCG creates objectives" on public.objectives for insert to authenticated with check (is_gcg());
 create policy "GCG updates objectives" on public.objectives for update to authenticated using (is_gcg()) with check (is_gcg());
-drop policy "Authenticated users manage indicators" on public.indicators;
+drop policy if exists "Authenticated users manage indicators" on public.indicators;
+drop policy if exists "Read indicators" on public.indicators;
+drop policy if exists "GCG creates indicators" on public.indicators;
+drop policy if exists "GCG updates indicators" on public.indicators;
 create policy "Read indicators" on public.indicators for select to authenticated using (true);
 create policy "GCG creates indicators" on public.indicators for insert to authenticated with check (is_gcg() and approval_status = 'Aprobado');
 create policy "GCG updates indicators" on public.indicators for update to authenticated using (is_gcg()) with check (is_gcg());
@@ -40,17 +46,21 @@ begin
  end if;
  return new;
 end; $$;
+drop trigger if exists guard_indicator_target on public.indicators;
 create trigger guard_indicator_target before update on public.indicators for each row execute function public.guard_indicator_target();
-drop policy "Authenticated users manage indicator_reports" on public.indicator_reports;
+drop policy if exists "Authenticated users manage indicator_reports" on public.indicator_reports;
+drop policy if exists "Read reports" on public.indicator_reports;
+drop policy if exists "Assigned users report" on public.indicator_reports;
 create policy "Read reports" on public.indicator_reports for select to authenticated using (true);
-alter table public.indicator_reports add column measurement_target numeric;
-alter table public.indicator_reports add column measurement_comparator text;
+alter table public.indicator_reports add column if not exists measurement_target numeric;
+alter table public.indicator_reports add column if not exists measurement_comparator text;
 -- Para datos anteriores no hay meta histórica verificable: queda nula.
 create policy "Assigned users report" on public.indicator_reports for insert to authenticated with check (can_report(indicator_id) and created_by = auth.uid() and exists(select 1 from indicators where id = indicator_id and approval_status = 'Aprobado'));
-drop policy "Authenticated users manage indicator target history" on public.indicator_target_history;
+drop policy if exists "Authenticated users manage indicator target history" on public.indicator_target_history;
+drop policy if exists "Read target history" on public.indicator_target_history;
 create policy "Read target history" on public.indicator_target_history for select to authenticated using (true);
 
-create table public.indicator_change_requests (
+create table if not exists public.indicator_change_requests (
  id bigint generated always as identity primary key,
  indicator_id bigint not null references public.indicators(id),
  report_id bigint references public.indicator_reports(id),
@@ -66,6 +76,8 @@ create table public.indicator_change_requests (
  check ((kind = 'report') = (report_id is not null))
 );
 alter table public.indicator_change_requests enable row level security;
+drop policy if exists "Read own requests or GCG" on public.indicator_change_requests;
+drop policy if exists "Request authorized changes" on public.indicator_change_requests;
 create policy "Read own requests or GCG" on public.indicator_change_requests for select to authenticated using (is_gcg() or requested_by = auth.uid());
 create policy "Request authorized changes" on public.indicator_change_requests for insert to authenticated with check (requested_by = auth.uid() and status = 'Pendiente' and reviewed_by is null and reviewed_at is null and (is_gcg() or can_report(indicator_id)));
 
@@ -94,6 +106,7 @@ begin
  end if;
  return new;
 end; $$;
+drop trigger if exists prepare_indicator_change on public.indicator_change_requests;
 create trigger prepare_indicator_change before insert on public.indicator_change_requests for each row execute function public.prepare_indicator_change();
 
 create or replace function public.measurement_status(result numeric, target numeric, comparator text) returns text language sql immutable as $$
@@ -124,12 +137,14 @@ begin
  new.status = measurement_status(new.result,coalesce(new.measurement_target,i.target),coalesce(new.measurement_comparator,i.comparator));
  return new;
 end; $$;
+drop trigger if exists prepare_measurement on public.indicator_reports;
 create trigger prepare_measurement before insert or update on public.indicator_reports for each row execute function public.prepare_measurement();
 create or replace function public.refresh_measurement_status() returns trigger language plpgsql security definer set search_path = public as $$
 begin
  update indicators set status = (select status from indicator_reports where indicator_id = new.indicator_id order by public.indicator_period_date(period) desc,created_at desc,id desc limit 1), updated_at = now() where id = new.indicator_id;
  return new;
 end; $$;
+drop trigger if exists refresh_measurement_status on public.indicator_reports;
 create trigger refresh_measurement_status after insert or update on public.indicator_reports for each row execute function public.refresh_measurement_status();
 
 create or replace function public.assign_indicator_reporter(indicator bigint, reporter text) returns void language plpgsql security definer set search_path = public as $$

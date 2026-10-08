@@ -1,6 +1,6 @@
 -- Después de 007: análisis, acciones, tareas, revisión individual y eficacia.
 begin;
-create table public.cause_analyses (
+create table if not exists public.cause_analyses (
  id bigint generated always as identity primary key,
  report_id bigint not null unique references public.indicator_reports(id),
  cause text not null check(length(trim(cause))>0),
@@ -8,11 +8,11 @@ create table public.cause_analyses (
  approved_at timestamptz, followup_report_id bigint references public.indicator_reports(id), efficacy_decided_by uuid references auth.users(id),
  created_by uuid not null references auth.users(id), created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
-create table public.corrective_actions (
+create table if not exists public.corrective_actions (
  id bigint generated always as identity primary key, analysis_id bigint not null references public.cause_analyses(id),
  name text not null check(length(trim(name))>0), description text not null check(length(trim(description))>0), created_at timestamptz not null default now()
 );
-create table public.corrective_tasks (
+create table if not exists public.corrective_tasks (
  id bigint generated always as identity primary key, action_id bigint not null references public.corrective_actions(id),
  name text not null check(length(trim(name))>0), description text not null check(length(trim(description))>0),
  progress integer not null default 0 check(progress between 0 and 100),
@@ -21,27 +21,27 @@ create table public.corrective_tasks (
  created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
  check(review_status not in ('En revisión','Aprobado') or progress=100)
 );
-create table public.corrective_evidence (
+create table if not exists public.corrective_evidence (
  id bigint generated always as identity primary key, task_id bigint not null references public.corrective_tasks(id),
  storage_path text not null unique, file_name text not null, file_size bigint not null check(file_size between 1 and 20971520),
  uploaded_by uuid not null references auth.users(id), created_at timestamptz not null default now()
 );
-create table public.corrective_events (
+create table if not exists public.corrective_events (
  id bigint generated always as identity primary key, analysis_id bigint not null references public.cause_analyses(id),
  task_id bigint references public.corrective_tasks(id), event text not null, note text, snapshot jsonb not null default '{}',
  actor uuid references auth.users(id), created_at timestamptz not null default now()
 );
-create index on public.corrective_actions(analysis_id);
-create index on public.corrective_tasks(action_id);
-create index on public.corrective_evidence(task_id);
-create index on public.corrective_events(analysis_id);
-create function public.can_read_analysis(analysis bigint) returns boolean language sql stable security definer set search_path=public as $$
+create index if not exists corrective_actions_analysis_id_idx on public.corrective_actions(analysis_id);
+create index if not exists corrective_tasks_action_id_idx on public.corrective_tasks(action_id);
+create index if not exists corrective_evidence_task_id_idx on public.corrective_evidence(task_id);
+create index if not exists corrective_events_analysis_id_idx on public.corrective_events(analysis_id);
+create or replace function public.can_read_analysis(analysis bigint) returns boolean language sql stable security definer set search_path=public as $$
  select auth.uid() is not null and exists(select 1 from cause_analyses c join indicator_reports r on r.id=c.report_id where c.id=analysis and (is_gcg() or can_manage_reporting(r.indicator_id)));
 $$;
-create function public.can_edit_analysis(analysis bigint) returns boolean language sql stable security definer set search_path=public as $$
+create or replace function public.can_edit_analysis(analysis bigint) returns boolean language sql stable security definer set search_path=public as $$
  select auth.uid() is not null and exists(select 1 from cause_analyses c join indicator_reports r on r.id=c.report_id where c.id=analysis and c.status='En proceso' and c.approved_at is null and can_manage_reporting(r.indicator_id));
 $$;
-create function public.can_edit_corrective_task(task bigint) returns boolean language sql stable security definer set search_path=public as $$
+create or replace function public.can_edit_corrective_task(task bigint) returns boolean language sql stable security definer set search_path=public as $$
  select exists(select 1 from corrective_tasks t join corrective_actions a on a.id=t.action_id where t.id=task and t.review_status in ('Borrador','Observado') and can_edit_analysis(a.analysis_id));
 $$;
 alter table public.cause_analyses enable row level security;
@@ -49,6 +49,11 @@ alter table public.corrective_actions enable row level security;
 alter table public.corrective_tasks enable row level security;
 alter table public.corrective_evidence enable row level security;
 alter table public.corrective_events enable row level security;
+drop policy if exists "Read authorized analyses" on public.cause_analyses;
+drop policy if exists "Read authorized actions" on public.corrective_actions;
+drop policy if exists "Read authorized corrective tasks" on public.corrective_tasks;
+drop policy if exists "Read authorized evidence" on public.corrective_evidence;
+drop policy if exists "Read corrective history" on public.corrective_events;
 create policy "Read authorized analyses" on public.cause_analyses for select to authenticated using(can_read_analysis(id));
 create policy "Read authorized actions" on public.corrective_actions for select to authenticated using(can_read_analysis(analysis_id));
 create policy "Read authorized corrective tasks" on public.corrective_tasks for select to authenticated using(exists(select 1 from corrective_actions a where a.id=action_id and can_read_analysis(a.analysis_id)));
@@ -57,7 +62,7 @@ create policy "Read corrective history" on public.corrective_events for select t
 revoke all on public.cause_analyses,public.corrective_actions,public.corrective_tasks,public.corrective_evidence,public.corrective_events from public,anon,authenticated;
 grant select on public.cause_analyses,public.corrective_actions,public.corrective_tasks,public.corrective_evidence,public.corrective_events to authenticated;
 
-create function public.save_cause_analysis(measurement bigint,cause_text text) returns bigint language plpgsql security definer set search_path=public as $$
+create or replace function public.save_cause_analysis(measurement bigint,cause_text text) returns bigint language plpgsql security definer set search_path=public as $$
 declare r indicator_reports; c cause_analyses; result_id bigint;
 begin
  select * into strict r from indicator_reports where id=measurement for update;
@@ -74,7 +79,7 @@ begin
  insert into corrective_events(analysis_id,event,note,actor) values(result_id,'Análisis guardado',trim(cause_text),auth.uid());
  return result_id;
 end; $$;
-create function public.add_corrective_action(analysis bigint,action_name text,action_description text) returns bigint language plpgsql security definer set search_path=public as $$
+create or replace function public.add_corrective_action(analysis bigint,action_name text,action_description text) returns bigint language plpgsql security definer set search_path=public as $$
 declare result_id bigint;
 begin
  perform 1 from cause_analyses where id=analysis for update;
@@ -83,7 +88,7 @@ begin
  insert into corrective_events(analysis_id,event,note,actor) values(analysis,'Acción creada',action_name,auth.uid());
  return result_id;
 end; $$;
-create function public.update_corrective_action(action bigint,action_name text,action_description text) returns void language plpgsql security definer set search_path=public as $$
+create or replace function public.update_corrective_action(action bigint,action_name text,action_description text) returns void language plpgsql security definer set search_path=public as $$
 declare a corrective_actions;
 begin
  select * into strict a from corrective_actions where id=action;
@@ -92,7 +97,7 @@ begin
  update corrective_actions set name=trim(action_name),description=trim(action_description) where id=action;
  insert into corrective_events(analysis_id,event,note,snapshot,actor) values(a.analysis_id,'Acción corregida',action_name,to_jsonb(a),auth.uid());
 end; $$;
-create function public.save_corrective_task(action bigint,task bigint,task_name text,task_description text,task_progress integer) returns bigint language plpgsql security definer set search_path=public as $$
+create or replace function public.save_corrective_task(action bigint,task bigint,task_name text,task_description text,task_progress integer) returns bigint language plpgsql security definer set search_path=public as $$
 declare a corrective_actions; t corrective_tasks; result_id bigint;
 begin
  select * into strict a from corrective_actions where id=action;
@@ -108,7 +113,7 @@ begin
  insert into corrective_events(analysis_id,task_id,event,snapshot,actor) values(a.analysis_id,result_id,'Tarea guardada',jsonb_build_object('name',task_name,'description',task_description,'progress',task_progress),auth.uid());
  return result_id;
 end; $$;
-create function public.notify_corrective_task(task bigint) returns void language plpgsql security definer set search_path=public as $$
+create or replace function public.notify_corrective_task(task bigint) returns void language plpgsql security definer set search_path=public as $$
 declare t corrective_tasks; a corrective_actions;
 begin
  select * into strict a from corrective_actions where id=(select action_id from corrective_tasks where id=task);
@@ -120,7 +125,7 @@ begin
 end; $$;
 
 -- No usar una medición anterior a terminar las correcciones como prueba de eficacia.
-create function public.refresh_analysis_followup(analysis bigint) returns void language plpgsql security definer set search_path=public as $$
+create or replace function public.refresh_analysis_followup(analysis bigint) returns void language plpgsql security definer set search_path=public as $$
 declare c cause_analyses; original indicator_reports; following indicator_reports; next_status text;
 begin
  select * into strict c from cause_analyses where id=analysis for update;
@@ -134,7 +139,7 @@ begin
   insert into corrective_events(analysis_id,event,snapshot) values(c.id,'Medición posterior evaluada',jsonb_build_object('report_id',following.id,'period',following.period,'status',following.status));
  end if;
 end; $$;
-create function public.review_corrective_task(task bigint,approve boolean,review_comment text) returns void language plpgsql security definer set search_path=public as $$
+create or replace function public.review_corrective_task(task bigint,approve boolean,review_comment text) returns void language plpgsql security definer set search_path=public as $$
 declare t corrective_tasks; a corrective_actions;
 begin
  if auth.uid() is null or not is_gcg() then raise exception 'Solo GCG puede verificar tareas'; end if;
@@ -151,7 +156,7 @@ begin
   perform refresh_analysis_followup(a.analysis_id);
  end if;
 end; $$;
-create function public.decide_cause_efficacy(analysis bigint,same_cause boolean,decision_reason text) returns void language plpgsql security definer set search_path=public as $$
+create or replace function public.decide_cause_efficacy(analysis bigint,same_cause boolean,decision_reason text) returns void language plpgsql security definer set search_path=public as $$
 declare c cause_analyses; next_analysis cause_analyses;
 begin
  if auth.uid() is null or not is_gcg() then raise exception 'Solo GCG puede decidir la eficacia'; end if;
@@ -163,7 +168,7 @@ begin
  update cause_analyses set status=case when same_cause then 'No eficaz' else 'Eficaz' end,efficacy_decided_by=auth.uid(),updated_at=now() where id=analysis;
  insert into corrective_events(analysis_id,event,note,snapshot,actor) values(analysis,case when same_cause then 'No eficaz: causa similar' else 'Eficaz: causa diferente' end,decision_reason,jsonb_build_object('new_analysis_id',next_analysis.id,'previous_cause',c.cause,'new_cause',next_analysis.cause),auth.uid());
 end; $$;
-create function public.update_corrective_followups() returns trigger language plpgsql security definer set search_path=public as $$
+create or replace function public.update_corrective_followups() returns trigger language plpgsql security definer set search_path=public as $$
 declare analysis_id bigint;
 begin
  for analysis_id in select c.id from cause_analyses c join indicator_reports r on r.id=c.report_id where r.indicator_id=new.indicator_id and c.approved_at is not null and c.efficacy_decided_by is null order by c.id loop
@@ -171,16 +176,20 @@ begin
  end loop;
  return new;
 end; $$;
+drop trigger if exists update_corrective_followups on public.indicator_reports;
 create trigger update_corrective_followups after insert or update on public.indicator_reports for each row execute function public.update_corrective_followups();
 
-insert into storage.buckets(id,name,public,file_size_limit) values('corrective-evidence','corrective-evidence',false,20971520);
-create function public.corrective_path_task(path text) returns bigint language sql immutable as $$
+insert into storage.buckets(id,name,public,file_size_limit) values('corrective-evidence','corrective-evidence',false,20971520) on conflict (id) do update set public=excluded.public,file_size_limit=excluded.file_size_limit;
+create or replace function public.corrective_path_task(path text) returns bigint language sql immutable as $$
  select case when split_part(path,'/',1) ~ '^[0-9]{1,18}$' then split_part(path,'/',1)::bigint else null end;
 $$;
+drop policy if exists "Upload corrective evidence" on storage.objects;
+drop policy if exists "Read corrective evidence files" on storage.objects;
+drop policy if exists "Clean failed own evidence uploads" on storage.objects;
 create policy "Upload corrective evidence" on storage.objects for insert to authenticated with check(bucket_id='corrective-evidence' and can_edit_corrective_task(corrective_path_task(name)));
 create policy "Read corrective evidence files" on storage.objects for select to authenticated using(bucket_id='corrective-evidence' and exists(select 1 from corrective_tasks t join corrective_actions a on a.id=t.action_id where t.id=corrective_path_task(storage.objects.name) and can_read_analysis(a.analysis_id)));
 create policy "Clean failed own evidence uploads" on storage.objects for delete to authenticated using(bucket_id='corrective-evidence' and owner_id=auth.uid()::text and can_edit_corrective_task(corrective_path_task(name)) and not exists(select 1 from corrective_evidence e where e.storage_path=name));
-create function public.register_corrective_evidence(task bigint,path text,original_name text,bytes bigint) returns void language plpgsql security definer set search_path=public as $$
+create or replace function public.register_corrective_evidence(task bigint,path text,original_name text,bytes bigint) returns void language plpgsql security definer set search_path=public as $$
 declare a corrective_actions;
 begin
  select * into strict a from corrective_actions where id=(select action_id from corrective_tasks where id=task);

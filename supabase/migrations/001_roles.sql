@@ -3,7 +3,7 @@
 
 create table if not exists public.role_assignments (
   email text primary key check (email = lower(email)),
-  role text not null check (role in ('gerente_general', 'gerente_responsable', 'gcg', 'super_admin')),
+  role text not null check (role in ('gerente_responsable', 'gcg', 'super_admin')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -11,7 +11,7 @@ create table if not exists public.role_assignments (
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique,
-  role text not null check (role in ('gerente_general', 'gerente_responsable', 'gcg', 'super_admin')),
+  role text not null check (role in ('gerente_responsable', 'gcg', 'super_admin')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -58,7 +58,7 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 insert into public.role_assignments (email, role) values
-  ('jcardenas@biomont.com.pe', 'gerente_general'),
+  ('jcardenas@biomont.com.pe', 'gcg'),
   ('molin@biomont.com.pe', 'gerente_responsable'),
   ('fleonv@biomont.com.pe', 'gcg'),
   ('curbina@biomont.com.pe', 'gcg'),

@@ -1,10 +1,12 @@
 -- Detalle documental y código correlativo de análisis de causa.
 begin;
-create table public.analysis_code_counters (code_year integer primary key,last_number integer not null check(last_number>0));
+create table if not exists public.analysis_code_counters (code_year integer primary key,last_number integer not null check(last_number>0));
 alter table public.analysis_code_counters enable row level security;
 revoke all on public.analysis_code_counters from public,anon,authenticated;
-alter table public.cause_analyses add column code text,add column deviation_description text,add column complementary_data text not null default '';
-create function public.allocate_analysis_code(full_year integer) returns text language plpgsql security definer set search_path=pg_catalog,public as $$
+alter table public.cause_analyses add column if not exists code text;
+alter table public.cause_analyses add column if not exists deviation_description text;
+alter table public.cause_analyses add column if not exists complementary_data text not null default '';
+create or replace function public.allocate_analysis_code(full_year integer) returns text language plpgsql security definer set search_path=pg_catalog,public as $$
 declare sequence_number integer;
 begin
  insert into public.analysis_code_counters(code_year,last_number) values(full_year,1) on conflict(code_year) do update set last_number=public.analysis_code_counters.last_number+1 returning last_number into sequence_number;
@@ -14,23 +16,25 @@ revoke all on function public.allocate_analysis_code(integer) from public,anon,a
 do $$
 declare item record;
 begin
- for item in select c.id,extract(year from public.indicator_period_date(r.period))::integer code_year,coalesce(nullif(trim(r.observations),''),'Desviación del indicador en el periodo '||r.period) deviation from public.cause_analyses c join public.indicator_reports r on r.id=c.report_id order by public.indicator_period_date(r.period),c.created_at,c.id loop
+ for item in select c.id,extract(year from public.indicator_period_date(r.period))::integer code_year,coalesce(nullif(trim(r.observations),''),'Desviación del indicador en el periodo '||r.period) deviation from public.cause_analyses c join public.indicator_reports r on r.id=c.report_id where c.code is null order by public.indicator_period_date(r.period),c.created_at,c.id loop
   update public.cause_analyses set code=public.allocate_analysis_code(item.code_year),deviation_description=item.deviation where id=item.id;
  end loop;
 end $$;
 alter table public.cause_analyses alter column code set not null;
+alter table public.cause_analyses drop constraint if exists cause_analyses_code_key;
 alter table public.cause_analyses add constraint cause_analyses_code_key unique(code);
 -- Se mantiene nullable para compatibilidad con clientes que estaban abiertos antes del despliegue;
 -- la nueva función exige el dato en toda creación o edición desde esta versión.
-create function public.prepare_analysis_code() returns trigger language plpgsql security definer set search_path=public as $$
+create or replace function public.prepare_analysis_code() returns trigger language plpgsql security definer set search_path=public as $$
 declare report_year integer;
 begin
  if new.code is null then select extract(year from indicator_period_date(period))::integer into strict report_year from indicator_reports where id=new.report_id; new.code=allocate_analysis_code(report_year); end if;
  return new;
 end; $$;
+drop trigger if exists prepare_analysis_code on public.cause_analyses;
 create trigger prepare_analysis_code before insert on public.cause_analyses for each row execute function public.prepare_analysis_code();
 revoke all on function public.prepare_analysis_code() from public,anon,authenticated;
-create function public.save_cause_analysis_details(measurement bigint,cause_text text,deviation_text text,complementary_text text) returns bigint language plpgsql security definer set search_path=public as $$
+create or replace function public.save_cause_analysis_details(measurement bigint,cause_text text,deviation_text text,complementary_text text) returns bigint language plpgsql security definer set search_path=public as $$
 declare r indicator_reports;c cause_analyses;result_id bigint;
 begin
  select * into strict r from indicator_reports where id=measurement for update;
@@ -49,8 +53,9 @@ begin
 end; $$;
 revoke all on function public.save_cause_analysis_details(bigint,text,text,text) from public,anon,authenticated;
 grant execute on function public.save_cause_analysis_details(bigint,text,text,text) to authenticated;
-alter table public.corrective_actions add column responsible text,add column due_date date;
-create function public.add_corrective_action_details(analysis bigint,action_name text,action_description text,action_responsible text,action_due_date date) returns bigint language plpgsql security definer set search_path=public as $$
+alter table public.corrective_actions add column if not exists responsible text;
+alter table public.corrective_actions add column if not exists due_date date;
+create or replace function public.add_corrective_action_details(analysis bigint,action_name text,action_description text,action_responsible text,action_due_date date) returns bigint language plpgsql security definer set search_path=public as $$
 declare result_id bigint;
 begin
  perform 1 from cause_analyses where id=analysis for update;

@@ -3,7 +3,7 @@ create table if not exists public.organization_people (
   id uuid primary key default gen_random_uuid(),
   full_name text not null unique,
   email text unique,
-  role text not null check (role in ('gerente_responsable', 'gerente_general', 'gcg', 'super_admin')),
+  role text not null check (role in ('gerente_responsable', 'gcg', 'super_admin')),
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

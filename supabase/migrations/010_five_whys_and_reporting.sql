@@ -2,13 +2,14 @@
 begin;
 
 alter table public.cause_analyses
-  add column five_whys jsonb not null default '[]'::jsonb;
+  add column if not exists five_whys jsonb not null default '[]'::jsonb;
 
+alter table public.cause_analyses drop constraint if exists cause_analyses_five_whys_array;
 alter table public.cause_analyses
   add constraint cause_analyses_five_whys_array
   check (jsonb_typeof(five_whys) = 'array');
 
-create function public.save_five_whys(measurement bigint, answers jsonb)
+create or replace function public.save_five_whys(measurement bigint, answers jsonb)
 returns bigint
 language plpgsql
 security definer
@@ -63,7 +64,7 @@ $$;
 revoke all on function public.save_five_whys(bigint, jsonb) from public, anon, authenticated;
 grant execute on function public.save_five_whys(bigint, jsonb) to authenticated;
 
-create function public.register_indicator_measurement(
+create or replace function public.register_indicator_measurement(
   indicator bigint, report_period text, report_result numeric, report_observations text default null
 )
 returns bigint
