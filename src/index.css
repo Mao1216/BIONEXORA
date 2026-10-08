@@ -17,3 +17,22 @@ body {
   background-color: #F8FAFC;
   font-family: 'Inter', sans-serif;
 }
+
+.request-form input,
+.request-form select,
+.request-form textarea {
+  padding: 0.75rem;
+  border-color: #e2e8f0;
+}
+
+.request-form textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.request-form button[type="submit"],
+.request-form form > button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+}

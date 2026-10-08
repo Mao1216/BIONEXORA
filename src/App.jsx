@@ -1,5 +1,6 @@
 import { displayUnit } from './lib/units';
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   LayoutDashboard, Target, FolderKanban, Settings, User, Plus, 
   ChevronRight, AlertCircle, CheckCircle2, Clock, ArrowRight, ArrowLeft, BarChart3, Calendar, Users, Activity, LogOut, FilePenLine, History
@@ -179,6 +180,7 @@ export default function App() {
   const [selectedObjectiveTab, setSelectedObjectiveTab] = useState('summary');
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
   const [indicatorRequestFlyout, setIndicatorRequestFlyout] = useState(null);
+  const [indicatorRequestForm, setIndicatorRequestForm] = useState(false);
   const [indicatorFilters, setIndicatorFilters] = useState({ search: '', objectiveId: '', responsibleId: '', indicatorId: '' });
   const [selectedActionId, setSelectedActionId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState(null);
@@ -341,6 +343,8 @@ export default function App() {
   };
 
   const navigateTo = (view, name, params = {}) => {
+    setIndicatorRequestFlyout(null);
+    setIndicatorRequestForm(false);
     if ((['new-objective', 'new-indicator', 'edit-indicator', 'gcg-review'].includes(view) && !isGcg) || (['new-project', 'edit-action', 'edit-target', 'report-indicator', 'indicator-status'].includes(view) && !isResponsibleManager)) return;
     setCurrentView(view);
     if (view === 'new-indicator' && !params.objectiveId) setSelectedObjectiveId(null);
@@ -965,7 +969,7 @@ export default function App() {
           </div>
           <div className="md:col-span-2">
             <div className="mb-4 flex flex-wrap justify-end gap-2">
-              {!isGcg && canManage && <button type="button" onClick={() => document.getElementById('indicator-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"><FilePenLine className="h-4 w-4" />Solicitar modificación</button>}
+              {!isGcg && canReport && <button type="button" onClick={() => setIndicatorRequestForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"><FilePenLine className="h-4 w-4" />Solicitar modificación</button>}
               <button type="button" onClick={() => setIndicatorRequestFlyout('pending')} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"><Clock className="h-4 w-4 text-amber-600" />En revisión</button>
               <button type="button" onClick={() => setIndicatorRequestFlyout('history')} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"><History className="h-4 w-4 text-slate-500" />Historial</button>
             </div>
@@ -1017,7 +1021,8 @@ export default function App() {
           </div>
         </Card>
         {!readOnlyDeviation && (isGcg || canReport) && <section id="indicator-actions" aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
-        {indicatorRequestFlyout && <IndicatorRequestFlyout indicatorId={ind.id} indicators={indicators} users={organizationPeople} history={indicatorRequestFlyout === 'history'} onClose={() => setIndicatorRequestFlyout(null)} onViewHistory={() => { setIndicatorRequestFlyout(null); navigateTo('indicator-request-history', 'Historial de solicitudes', { indicatorId: ind.id }); }} />}
+        {indicatorRequestFlyout && <IndicatorRequestFlyout indicatorId={ind.id} indicators={indicators} users={organizationPeople} reports={reports} history={indicatorRequestFlyout === 'history'} onClose={() => setIndicatorRequestFlyout(null)} onViewHistory={() => { setIndicatorRequestFlyout(null); navigateTo('indicator-request-history', 'Historial de solicitudes', { indicatorId: ind.id }); }} />}
+        {indicatorRequestForm && createPortal(<div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[1px]" role="dialog" aria-modal="true" aria-label="Solicitar modificación"><div className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><header className="flex items-center justify-between border-b border-slate-200 px-6 py-5"><div><p className="text-xs font-semibold text-blue-700">{ind.code}</p><h2 className="mt-1 text-xl font-bold text-slate-900">Solicitar modificación</h2></div><button autoFocus onClick={() => setIndicatorRequestForm(false)} aria-label="Cerrar formulario" className="rounded-lg px-3 py-1 text-2xl text-slate-500 hover:bg-slate-100">×</button></header><div className="p-6"><p className="mb-5 text-sm text-slate-500">{ind.name}</p><IndicatorControls requestOnly indicator={ind} reports={indReports} isGcg={false} canManage={false} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={message => { notify(message); setIndicatorRequestForm(false); }} /></div></div></div>, document.body)}
       </div>
     );
   };
@@ -1126,7 +1131,7 @@ export default function App() {
           {currentView === 'dashboard' && <><MonitorView />{isGcg && <ComparisonCharts indicators={indicators} reports={reports} />}</>}
           {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} users={availableUsers} filters={indicatorFilters} />}
           {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} />}
-          {currentView === 'indicator-request-history' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} indicatorId={selectedIndicatorId} initialHistory />}
+          {currentView === 'indicator-request-history' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} reports={reports} onReload={loadOperationalData} onError={setDataError} indicatorId={selectedIndicatorId} initialHistory onBack={goBack} />}
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
           {currentView === 'objective-detail' && <ObjectiveDetailView />}
