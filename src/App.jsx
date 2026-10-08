@@ -16,7 +16,8 @@ import { activeObjectives } from './lib/objectiveViews';
 import BioIndicatorsView from './BioIndicatorsView';
 import ObjectiveProgressList from './ObjectiveProgressList';
 import useCorrectiveWorkflow from './useCorrectiveWorkflow';
-import { AnalysisHistoryButton, ActionsHistoryButton, VerificationsView } from './CorrectiveWorkflow';
+import { AnalysisHistoryButton, ActionsHistoryButton } from './CorrectiveWorkflow';
+import { OutOfTargetView } from './UnifiedActions';
 import { attentionIndicators } from './lib/correctiveWorkflow';
 
 const ROLE_LABELS = {
@@ -181,7 +182,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const corrective = useCorrectiveWorkflow(session?.user?.id);
   useEffect(() => {
-    if (['indicator-detail', 'verifications', 'objectives'].includes(currentView)) corrective.reload();
+    if (['indicator-detail', 'out-of-target', 'objectives'].includes(currentView)) corrective.reload();
   }, [currentView, corrective.reload]);
   const [assignedRole, setAssignedRole] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -931,6 +932,7 @@ export default function App() {
     if (!ind) return null;
     const indReports = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id));
     const latestReport = indReports[indReports.length - 1];
+    const readOnlyDeviation = isGcg && navHistory.at(-2)?.id === 'out-of-target';
     const reportYears = [...new Set(indReports.map(report => reportPeriodTime(report) ? String(new Date(reportPeriodTime(report)).getUTCFullYear()) : '').filter(Boolean))].sort((a, b) => Number(b) - Number(a));
     const activeWeightedYear = reportYears.includes(weightedYear) ? weightedYear : (reportYears[0] || '');
     const weighted = weightedMeasurementValue(indReports, activeWeightedYear);
@@ -1001,7 +1003,7 @@ export default function App() {
             </table>
           </div>
         </Card>
-        {(isGcg || canReport) && <section aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
+        {!readOnlyDeviation && (isGcg || canReport) && <section aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
       </div>
     );
   };
@@ -1091,7 +1093,7 @@ export default function App() {
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
             {isResponsibleManager && <button onClick={() => navigateTo('indicator-status', 'Estatus IND')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'indicator-status' || currentView === 'edit-indicator' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><BarChart3 className="w-5 h-5" /> Estatus IND</button>}
             {isGcg && <button onClick={() => navigateTo('gcg-review', 'Solicitudes')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Solicitudes</button>}
-            {isGcg && <button onClick={() => { corrective.reload(); navigateTo('verifications', 'Verificaciones'); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'verifications' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Verificaciones</button>}
+            {isGcg && <button onClick={() => { corrective.reload(); navigateTo('out-of-target', 'Fuera de meta'); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'out-of-target' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Fuera de meta</button>}
           </nav>
         </div>
         <div className="p-4 border-t border-slate-800">
@@ -1118,7 +1120,7 @@ export default function App() {
           {currentView === 'edit-indicator' && <EditIndicatorView />}
           {currentView === 'edit-target' && <EditTargetView />}
           {currentView === 'gcg-review' && isGcg && <ChangeRequests isGcg indicators={indicators} onReload={loadOperationalData} onError={setDataError} />}
-          {currentView === 'verifications' && isGcg && <VerificationsView workflow={corrective} indicators={indicators} objectives={objectives} reports={reports} />}
+          {currentView === 'out-of-target' && isGcg && <OutOfTargetView workflow={corrective} indicators={indicators} objectives={objectives} reports={reports} onSelect={indicator => navigateTo("indicator-detail", indicator.name, { indicatorId: indicator.id })} />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'indicator-detail' && <IndicatorDetailView />}
           {currentView === 'report-indicator' && <ReportFormView />}
@@ -1130,7 +1132,7 @@ export default function App() {
         {isGeneralManager ? <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Objetivo</span></button> : <button onClick={() => navigateTo('objectives', 'Objetivos')} className="flex flex-col items-center gap-1 text-slate-500"><Target className="w-5 h-5" /><span className="text-[10px] font-medium">Objetivos</span></button>}
         <button onClick={() => navigateTo('bio-indicators', 'Indicadores')} className="flex flex-col items-center gap-1 text-slate-500"><BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium">Indicadores</span></button>
         <button onClick={() => navigateTo(isGcg ? 'gcg-review' : 'change-requests', isGcg ? 'Revisión GCG' : 'Solicitudes')} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">{isGcg ? 'Revisión GCG' : 'Solicitudes'}</span></button>
-        {isGcg && <button onClick={() => { corrective.reload(); navigateTo('verifications', 'Verificaciones'); }} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">Verificaciones</span></button>}
+        {isGcg && <button onClick={() => { corrective.reload(); navigateTo('out-of-target', 'Fuera de meta'); }} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">Fuera de meta</span></button>}
       </div>
     </div>
   );

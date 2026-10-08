@@ -14,16 +14,7 @@ export function attentionIndicators(indicators, reports, analyses) {
   });
 }
 export function taskEditable(task, analysis) {
-  return analysis?.status === 'En proceso' && !analysis.approved_at && ['Borrador', 'Observado'].includes(task.review_status);
-}
-export function taskNotifiable(task, analysis) {
-  return taskEditable(task, analysis) && Number(task.progress) === 100;
-}
-export function efficacyFromFollowup(analysis, origin, reports) {
-  if (!analysis.approved_at || analysis.efficacy_decided_by) return { status: analysis.status, report: null };
-  const originalOrder = parseReportPeriod(origin.period)?.order;
-  const report = reports.filter(item => sameId(item.indicatorId, origin.indicatorId) && parseReportPeriod(item.period)?.order > originalOrder && new Date(item.created_at) >= new Date(analysis.approved_at)).sort((a, b) => parseReportPeriod(a.period).order - parseReportPeriod(b.period).order || Number(a.id) - Number(b.id))[0];
-  return { report, status: report ? report.status === 'En meta' ? 'Eficaz' : 'Pendiente de verificación' : 'En proceso' };
+  return Boolean(analysis);
 }
 export function validateEvidence(file) {
   if (!file || file.size < 1 || file.size > 20 * 1024 * 1024) throw new Error('Cada evidencia debe pesar entre 1 byte y 20 MB.');
