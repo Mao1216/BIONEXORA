@@ -1,3 +1,4 @@
+import { displayUnit } from './lib/units';
 import React, { useState } from 'react';
 import { supabase } from './lib/supabase';
 import { sameId, validateEvidence, attentionIndicators } from './lib/correctiveWorkflow';
@@ -46,5 +47,5 @@ export function UnifiedActions({ analysis, workflow, users = [], canManage }) {
 
 export function OutOfTargetView({ indicators, objectives, reports, workflow, onSelect }) {
   const entries = attentionIndicators(indicators, reports, workflow.analyses);
-  return <div className="space-y-5"><h1 className="text-2xl font-bold">Fuera de meta</h1><p className="text-slate-500">Consulta los indicadores, análisis de causa, acciones, avances y evidencias.</p>{workflow.error && <p role="alert">{workflow.error}</p>}{entries.map(({ indicator, report, label }) => { const objective = objectives.find(row => sameId(row.id, indicator.objectiveId)); return <button key={indicator.id} onClick={() => onSelect(indicator)} className="block w-full rounded-xl border bg-white p-5 text-left space-y-2"><h2 className="font-semibold">{indicator.code} · {indicator.name}</h2><p className="text-sm text-slate-500">{objective?.code} · {objective?.name}</p><p className="text-sm">{report.period} · Resultado: {report.result} {indicator.unit} · {label}</p></button>; })}{!entries.length && <p>No hay indicadores fuera de meta.</p>}</div>;
+  return <div className="space-y-5"><h1 className="text-2xl font-bold">Fuera de meta</h1><p className="text-slate-500">Consulta los indicadores, análisis de causa, acciones, avances y evidencias.</p>{workflow.error && <p role="alert">{workflow.error}</p>}{entries.map(({ indicator, report, label }) => { const objective = objectives.find(row => sameId(row.id, indicator.objectiveId)); return <button key={indicator.id} onClick={() => onSelect(indicator)} className="block w-full rounded-xl border bg-white p-5 text-left space-y-2"><h2 className="font-semibold">{indicator.code} · {indicator.name}</h2><p className="text-sm text-slate-500">{objective?.code} · {objective?.name}</p><p className="text-sm">{report.period} · Resultado: {report.result} {displayUnit(indicator.unit)} · {label}</p></button>; })}{!entries.length && <p>No hay indicadores fuera de meta.</p>}</div>;
 }

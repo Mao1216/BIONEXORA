@@ -1,3 +1,4 @@
+import { displayUnit } from './lib/units';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ClipboardList } from 'lucide-react';
@@ -59,7 +60,7 @@ function FiveWhysModal({ report, analysis, workflow, canManage, onClose, onConti
   </form></Modal>;
 }
 function AnalysisModal({ report, analysis, indicator, objective, workflow, users, canManage, onClose }) {
-  const [tab,setTab]=useState('initial'); const [cause,setCause]=useState(analysis?.cause||''); const [deviation,setDeviation]=useState(analysis?.deviation_description||report.obs||`El resultado ${report.result} ${indicator.unit} del periodo ${report.period} se encuentra fuera de la meta ${indicator.comparator} ${indicator.target} ${indicator.unit}.`); const [complementary,setComplementary]=useState(analysis?.complementary_data||''); const operation=useOperation(workflow.reload);
+  const [tab,setTab]=useState('initial'); const [cause,setCause]=useState(analysis?.cause||''); const [deviation,setDeviation]=useState(analysis?.deviation_description||report.obs||`El resultado ${report.result} ${displayUnit(indicator.unit)} del periodo ${report.period} se encuentra fuera de la meta ${indicator.comparator} ${indicator.target} ${displayUnit(indicator.unit)}.`); const [complementary,setComplementary]=useState(analysis?.complementary_data||''); const operation=useOperation(workflow.reload);
   const editable=canManage && (!analysis || taskEditable({review_status:'Borrador'},analysis));
   const save=async event=>{event.preventDefault();if(await operation.run(()=>rpc('save_cause_analysis_details',{measurement:report.id,cause_text:cause,deviation_text:deviation,complementary_text:complementary}))) onClose();};
   const tabs=[['initial','Datos Iniciales'],['details','Detalles del análisis'],['complementary','Datos complementarios']];

@@ -1,3 +1,4 @@
+import { displayUnit } from './lib/units';
 import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { MONTHS, parseReportPeriod } from './lib/reporting';
@@ -32,9 +33,9 @@ export default function ComparisonLines({ indicators, reports }) {
     <p className="text-xs text-slate-500">{a.year && b.year ? 'Los años seleccionados se comparan por el mismo mes. El detalle de cada punto conserva su año.' : 'Selecciona un año en ambos filtros para superponer los meses de años distintos; con Todos se usa la fecha real.'}{separateUnits && ' Las unidades son diferentes: A usa el eje izquierdo y B el derecho.'}</p>
     {ready && data.length ? <div className="h-80" aria-label="Comparativa de indicadores con dos líneas"><ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{ top: 12, right: 24, bottom: 12, left: 16 }}>
       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="period" tick={{ fontSize: 11 }} />
-      <YAxis yAxisId="a" tick={{ fontSize: 11 }} label={{ value: indicatorA?.unit || '', angle: -90, position: 'insideLeft' }} />
-      {separateUnits && <YAxis yAxisId="b" orientation="right" tick={{ fontSize: 11 }} label={{ value: indicatorB?.unit || '', angle: 90, position: 'insideRight' }} />}
-      <Tooltip formatter={(value, name, item) => { const key = item.dataKey; const indicator = key === 'a' ? indicatorA : indicatorB; return [`${value} ${indicator?.unit || ''} · ${item.payload[`${key}Period`] || ''}`, name]; }} />
+      <YAxis yAxisId="a" tick={{ fontSize: 11 }} label={{ value: displayUnit(indicatorA?.unit), angle: -90, position: 'insideLeft' }} />
+      {separateUnits && <YAxis yAxisId="b" orientation="right" tick={{ fontSize: 11 }} label={{ value: displayUnit(indicatorB?.unit), angle: 90, position: 'insideRight' }} />}
+      <Tooltip formatter={(value, name, item) => { const key = item.dataKey; const indicator = key === 'a' ? indicatorA : indicatorB; return [`${value} ${displayUnit(indicator?.unit)} · ${item.payload[`${key}Period`] || ''}`, name]; }} />
       <Legend /><Line yAxisId="a" type="linear" dataKey="a" name={`Comparativa A · ${indicatorA?.name || ''}`} stroke="#1d4ed8" strokeWidth={3} dot={{ r: 4 }} connectNulls={false} />
       <Line yAxisId={separateUnits ? 'b' : 'a'} type="linear" dataKey="b" name={`Comparativa B · ${indicatorB?.name || ''}`} stroke="#dc2626" strokeWidth={3} dot={{ r: 4 }} connectNulls={false} />
     </LineChart></ResponsiveContainer></div> : <p className="py-14 text-center text-slate-500">{ready ? 'No hay mediciones para los filtros seleccionados.' : 'Selecciona un indicador en cada comparativa para ver las dos líneas.'}</p>}

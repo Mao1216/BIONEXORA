@@ -1,3 +1,4 @@
+import { displayUnit } from './lib/units';
 import React, { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { measurementSeries, measurementTicks } from './lib/indicatorViews';
@@ -27,7 +28,7 @@ export default function MeasurementChart({ indicator, reports }) {
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis dataKey="period" tick={{ fontSize: 11 }} />
         <YAxis ticks={ticks} interval={0} domain={[ticks[0], ticks[ticks.length - 1]]} width={80} tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(value, name) => [`${value} ${indicator.unit}`, name]} />
+        <Tooltip formatter={(value, name) => [`${value} ${displayUnit(indicator.unit)}`, name]} />
         <Legend />
         <Line type="stepAfter" dataKey="meta" name="Meta de la medición" stroke="#16a34a" strokeDasharray="6 4" strokeWidth={2} dot={{ r: 2 }} connectNulls={false} />
         <Line type="monotone" dataKey="resultado" name="Resultado" stroke="#1d4ed8" strokeWidth={3} dot={{ r: 4 }} />
