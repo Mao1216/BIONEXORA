@@ -50,7 +50,7 @@ export default function MeasurementChart({ indicator, reports }) {
   const data = measurementSeries(resolvedReports);
   const ticks = measurementTicks(data, indicator.target);
   const ResultDot = ({ cx, cy, payload }) => {
-    if (!Number.isFinite(Number(payload?.resultado))) return null;
+    if (payload?.resultado == null || !Number.isFinite(Number(payload.resultado))) return null;
     const color = isInTarget(payload.resultado, payload.meta ?? indicator.target, payload.comparator || indicator.comparator) ? '#16a34a' : '#dc2626';
     return <circle cx={cx} cy={cy} r={5} fill={color} stroke="#ffffff" strokeWidth={2} />;
   };
