@@ -1,4 +1,4 @@
--- Solicitudes revisables, auditoría especial de Claudia y dos porqués mínimos.
+-- Solicitudes revisables, auditoría de cambios directos GCG y dos porqués mínimos.
 begin;
 
 alter table public.indicator_change_requests
@@ -32,11 +32,7 @@ create table if not exists public.indicator_change_audit (
   created_at timestamptz not null default now()
 );
 alter table public.indicator_change_audit enable row level security;
-create policy "Read audit as GCG or Claudia" on public.indicator_change_audit for select to authenticated using (is_gcg() or lower(auth.jwt()->>'email') = 'curbina@biomont.com.pe');
-
-create or replace function public.is_claudia() returns boolean language sql stable security definer set search_path = public as $$
-  select lower(coalesce(auth.jwt()->>'email','')) = 'curbina@biomont.com.pe';
-$$;
+create policy "Read audit as GCG" on public.indicator_change_audit for select to authenticated using (is_gcg());
 
 create or replace function public.prepare_indicator_change() returns trigger language plpgsql security definer set search_path = public as $$
 declare i indicators; r indicator_reports;
@@ -102,10 +98,10 @@ begin
  update indicator_change_requests set status=case when approve then 'Aprobado' else 'Rechazado' end, reviewed_by=auth.uid(), reviewed_at=now(), review_comment=nullif(trim(review_comment),'') where id=q.id;
 end; $$;
 
-create or replace function public.apply_claudia_indicator_change(indicator bigint, change_kind text, target_report bigint, proposed jsonb, change_reason text) returns void language plpgsql security definer set search_path = public as $$
+create or replace function public.apply_gcg_indicator_change(indicator bigint, change_kind text, target_report bigint, proposed jsonb, change_reason text) returns void language plpgsql security definer set search_path = public as $$
 declare i indicators; r indicator_reports; before_value jsonb; after_value jsonb;
 begin
- if not is_claudia() or not can_report(indicator) then raise exception 'Solo Claudia puede aplicar este cambio directo a sus indicadores asignados'; end if;
+ if not is_gcg() then raise exception 'Solo GCG puede aplicar cambios directos'; end if;
  if coalesce(length(trim(change_reason)),0)=0 then raise exception 'Indica el motivo del cambio'; end if;
  select * into strict i from indicators where id=indicator for update;
  if change_kind='target' then
@@ -114,7 +110,9 @@ begin
    insert into indicator_target_history(indicator_id,target,comparator,changed_by) values(i.id,i.target,i.comparator,auth.uid()); update indicators set target=(proposed->>'target')::numeric, comparator=proposed->>'comparator', updated_at=now() where id=i.id;
  elsif change_kind='definition' then
    if coalesce(length(trim(proposed->>'name')),0)=0 then raise exception 'Nombre inválido'; end if;
-   before_value:=jsonb_build_object('name',i.name); after_value:=jsonb_build_object('name',proposed->>'name'); update indicators set name=proposed->>'name', updated_at=now() where id=i.id;
+   before_value:=jsonb_build_object('name',i.name,'resource',i.resource,'formula',i.formula,'unit',i.unit,'frequency',i.frequency,'review_frequency',i.review_frequency,'owner_email',i.owner_email);
+   after_value:=jsonb_build_object('name',proposed->>'name','resource',coalesce(proposed->>'resource',i.resource),'formula',coalesce(proposed->>'formula',i.formula),'unit',coalesce(proposed->>'unit',i.unit),'frequency',coalesce(proposed->>'frequency',i.frequency),'review_frequency',coalesce(proposed->>'review_frequency',i.review_frequency),'owner_email',coalesce(proposed->>'owner_email',i.owner_email));
+   update indicators set name=after_value->>'name', resource=after_value->>'resource', formula=after_value->>'formula', unit=after_value->>'unit', frequency=after_value->>'frequency', review_frequency=after_value->>'review_frequency', owner_email=after_value->>'owner_email', updated_at=now() where id=i.id;
  elsif change_kind in ('report','delete_report') then
    select * into strict r from indicator_reports where id=target_report and indicator_id=i.id for update;
    before_value:=jsonb_build_object('result',r.result,'period',r.period);
@@ -124,8 +122,8 @@ begin
  insert into indicator_change_audit(indicator_id,report_id,kind,previous,current,reason,changed_by,changed_email) values(i.id,case when change_kind='delete_report' then null else target_report end,change_kind,before_value,after_value,trim(change_reason),auth.uid(),lower(auth.jwt()->>'email'));
 end; $$;
 
-revoke all on function public.review_indicator_change(bigint,boolean,text), public.apply_claudia_indicator_change(bigint,text,bigint,jsonb,text) from public;
-grant execute on function public.review_indicator_change(bigint,boolean,text), public.apply_claudia_indicator_change(bigint,text,bigint,jsonb,text) to authenticated;
+revoke all on function public.review_indicator_change(bigint,boolean,text), public.apply_gcg_indicator_change(bigint,text,bigint,jsonb,text) from public;
+grant execute on function public.review_indicator_change(bigint,boolean,text), public.apply_gcg_indicator_change(bigint,text,bigint,jsonb,text) to authenticated;
 
 create or replace function public.save_five_whys(measurement bigint, answers jsonb) returns bigint language plpgsql security definer set search_path = public as $$
 declare r indicator_reports; c cause_analyses; answer_count integer; result_id bigint;
