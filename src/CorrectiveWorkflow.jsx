@@ -93,13 +93,10 @@ function Modal({ title, children, onClose }) {
 }
 const whyLevels = [
   ['Causa superficial', 'bg-rose-500'],
-  ['Causa superficial', 'bg-rose-500'],
-  ['Causa profunda', 'bg-orange-400'],
-  ['Causa más profunda', 'bg-amber-400'],
   ['Causa raíz', 'bg-emerald-400'],
 ];
 function FiveWhysModal({ report, analysis, workflow, canManage, onClose, onContinue }) {
-  const initial = Array.isArray(analysis?.five_whys) && analysis.five_whys.length === 5 ? analysis.five_whys : ['', '', '', '', ''];
+  const initial = Array.isArray(analysis?.five_whys) && analysis.five_whys.length >= 2 ? analysis.five_whys.slice(0, 2) : ['', ''];
   const [answers, setAnswers] = useState(initial);
   const operation = useOperation(workflow.reload);
   const editable = canManage && (!analysis || taskEditable({ review_status: 'Borrador' }, analysis));

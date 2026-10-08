@@ -16,7 +16,7 @@ test('GCG review uses change requests instead of indicator approval', () => {
 test('GCG creates indicators from a valid objective detail', () => {
   const detail = app.slice(app.indexOf('const ObjectiveDetailView'), app.indexOf('const ProjectFormView'));
   const sidebar = app.slice(app.indexOf('<nav className="px-4'), app.indexOf('</nav>', app.indexOf('<nav className="px-4')));
-  assert.match(detail, /isGcg && <Button onClick=\{\(\) => navigateTo\('new-indicator', 'Nuevo Indicador', \{ objectiveId: obj\.id \}\)/);
+  assert.match(detail, /isGcg && <Button onClick=\{\(\) => navigateTo\('new-indicator', 'Nuevo Indicador', \{ objectiveId: obj\.id, objectiveTab: 'indicators' \}\)/);
   assert.doesNotMatch(sidebar, /navigateTo\('new-indicator'/);
   assert.match(app, /if \(!isGcg \|\| !obj\)/);
   assert.match(app, /objective_id: obj.id/);

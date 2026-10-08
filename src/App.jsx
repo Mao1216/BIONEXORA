@@ -172,6 +172,7 @@ export default function App() {
   const [organizationPeople, setOrganizationPeople] = useState([]);
   
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
+  const [selectedObjectiveTab, setSelectedObjectiveTab] = useState('summary');
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
   const [selectedActionId, setSelectedActionId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState(null);
@@ -338,6 +339,8 @@ export default function App() {
     setCurrentView(view);
     if (view === 'new-indicator' && !params.objectiveId) setSelectedObjectiveId(null);
     if (params.objectiveId) setSelectedObjectiveId(params.objectiveId);
+    if (params.objectiveTab) setSelectedObjectiveTab(params.objectiveTab);
+    else if (view === 'objective-detail') setSelectedObjectiveTab('summary');
     if (params.indicatorId) setSelectedIndicatorId(params.indicatorId);
     if (params.actionId) setSelectedActionId(params.actionId);
     if (['dashboard', 'objectives', 'gcg-review', 'indicator-status', 'settings'].includes(view)) {
@@ -354,6 +357,7 @@ export default function App() {
     const destination = navHistory[index];
     setCurrentView(destination.id);
     if (destination.objectiveId) setSelectedObjectiveId(destination.objectiveId);
+    setSelectedObjectiveTab(destination.objectiveTab || 'summary');
     if (destination.indicatorId) setSelectedIndicatorId(destination.indicatorId);
     if (destination.actionId) setSelectedActionId(destination.actionId);
     setNavHistory(navHistory.slice(0, index + 1));
@@ -632,7 +636,8 @@ export default function App() {
 
   const ObjectiveDetailView = () => {
     const obj = objectives.find(o => o.id === selectedObjectiveId);
-    const [activeTab, setActiveTab] = useState('summary');
+    const [activeTab, setActiveTab] = useState(selectedObjectiveTab);
+    useEffect(() => setActiveTab(selectedObjectiveTab), [selectedObjectiveTab]);
     if (!obj || (isManagerScoped && !scopedObjectives.some(objective => objective.id === obj.id))) {
       return <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">No tienes acceso a este objetivo.</div>;
     }
@@ -669,7 +674,7 @@ export default function App() {
         <div className="border-b border-slate-200">
           <div className="flex gap-6 overflow-x-auto whitespace-nowrap pr-2">
             {[ { id: 'summary', label: 'Resumen', icon: Activity, visible: true }, { id: 'projects', label: 'Proyectos', icon: FolderKanban, visible: isResponsibleManager }, { id: 'indicators', label: 'Indicadores', icon: BarChart3, visible: isResponsibleManager || isGcg }].filter(tab => tab.visible).map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? 'border-[#1D4ED8] text-[#1D4ED8]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+              <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSelectedObjectiveTab(tab.id); setNavHistory(history => history.map((entry, index) => index === history.length - 1 && entry.id === 'objective-detail' ? { ...entry, objectiveTab: tab.id } : entry)); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? 'border-[#1D4ED8] text-[#1D4ED8]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
                 <tab.icon className="w-4 h-4" /> {tab.label}
               </button>
             ))}
@@ -749,10 +754,10 @@ export default function App() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-slate-900">Indicadores Estratégicos</h3>
-                {isGcg && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Crear Indicador</Button>}
+                {isGcg && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id, objectiveTab: 'indicators' })} className="text-xs py-1.5"><Plus className="w-4 h-4"/> Crear Indicador</Button>}
               </div>
               {objIndicators.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><BarChart3 className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Aún no hay indicadores para medir este objetivo.</p>{isGcg && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Definir primer indicador</Button>}</div>
+                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><BarChart3 className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-600 font-medium">Aún no hay indicadores para medir este objetivo.</p>{isGcg && <Button onClick={() => navigateTo('new-indicator', 'Nuevo Indicador', { objectiveId: obj.id, objectiveTab: 'indicators' })} variant="secondary" className="mt-4 mx-auto"><Plus className="w-4 h-4"/> Definir primer indicador</Button>}</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {objIndicators.map(ind => {
@@ -874,7 +879,7 @@ export default function App() {
       }
       setIndicators([...indicators, toIndicator(data)]);
       notify('Indicador creado por GCG y habilitado para reportar.');
-      navigateTo('objective-detail', obj.name, { objectiveId: obj.id });
+      navigateTo('objective-detail', obj.name, { objectiveId: obj.id, objectiveTab: 'indicators' });
     };
 
     return (
@@ -911,7 +916,7 @@ export default function App() {
             </div>
           </Card>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={() => obj ? navigateTo('objective-detail', obj.name, { objectiveId: obj.id }) : navigateTo('objectives', 'Objetivos')}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={() => obj ? navigateTo('objective-detail', obj.name, { objectiveId: obj.id, objectiveTab: 'indicators' }) : navigateTo('objectives', 'Objetivos')}>Cancelar</Button>
             <Button type="submit">Guardar Indicador</Button>
           </div>
         </form>
@@ -1072,7 +1077,7 @@ export default function App() {
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
             {isResponsibleManager && <button onClick={() => navigateTo('indicator-status', 'Estatus IND')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'indicator-status' || currentView === 'edit-indicator' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><BarChart3 className="w-5 h-5" /> Estatus IND</button>}
-            {isGcg && <button onClick={() => navigateTo('gcg-review', 'Revisión GCG')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Revisión GCG</button>}
+            {isGcg && <button onClick={() => navigateTo('gcg-review', 'Solicitudes de revisión')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Solicitudes de revisión</button>}
             {isGcg && <button onClick={() => { corrective.reload(); navigateTo('verifications', 'Verificaciones'); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'verifications' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Verificaciones</button>}
           </nav>
         </div>
