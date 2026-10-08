@@ -1,6 +1,8 @@
 import { displayUnit } from './lib/units';
 import React from 'react';
-import { Filter } from 'lucide-react';
+import { Filter, Search, ArrowLeft } from 'lucide-react';
+import { AttentionPanel, IndicatorPortfolioCard, PortfolioSummary } from './IndicatorPortfolio';
+import { portfolioRows } from './lib/indicatorPortfolio';
 import MeasurementChart from './MeasurementChart';
 import { filterIndicators } from './lib/indicatorViews';
 import { parseReportPeriod } from './lib/reporting';
@@ -16,7 +18,7 @@ export function IndicatorFilterMenu({ objectives, indicators, users = [], filter
   const apply = next => {
     const matches = filterIndicators(indicators, next);
     const selectedStillMatches = matches.some(item => String(item.id) === String(next.indicatorId));
-    onChange({ ...next, indicatorId: selectedStillMatches ? next.indicatorId : (matches[0] ? String(matches[0].id) : '') });
+    onChange({ ...next, indicatorId: selectedStillMatches ? next.indicatorId : '' });
   };
   const change = key => event => apply({ ...filters, [key]: event.target.value });
   const matches = filterIndicators(indicators, filters);
@@ -34,22 +36,25 @@ export function IndicatorFilterMenu({ objectives, indicators, users = [], filter
   </details>;
 }
 
-export default function BioIndicatorsView({ objectives, indicators, reports, users = [], filters }) {
+export default function BioIndicatorsView({ objectives, indicators, reports, users = [], filters, onChange }) {
   const list = filterIndicators(indicators, filters);
   const indicator = list.find(item => String(item.id) === String(filters.indicatorId));
   const objective = objectives.find(item => item.id === indicator?.objectiveId);
   const rows = reports.filter(report => report.indicatorId === indicator?.id).sort((a, b) => (parseReportPeriod(b.period)?.order || 0) - (parseReportPeriod(a.period)?.order || 0) || Number(b.id) - Number(a.id));
   const latest = rows[0];
+  const portfolio = portfolioRows(list, reports);
+  const select = item => onChange({ ...filters, indicatorId: String(item.id) });
   return <div className="fade-in space-y-6">
-    <header><p className="text-sm font-semibold text-red-600 uppercase">Visualizaciones · Solo lectura</p><h1 className="text-3xl font-bold text-slate-900 mt-1">Indicadores</h1><p className="text-slate-500 mt-2">Usa el embudo superior para filtrar el portafolio y seleccionar el indicador que deseas consultar.</p></header>
+    <header><p className="text-xs font-medium text-slate-500">Visualizaciones / Indicadores · Solo lectura</p><h1 className="text-3xl font-bold tracking-tight text-slate-900 mt-2">Indicadores estratégicos</h1><p className="text-sm text-slate-500 mt-2">Seguimiento integral del portafolio</p></header>
+    {!indicator && <><PortfolioSummary rows={portfolio} /><div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><label className="relative min-w-48 flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input aria-label="Buscar en el portafolio" placeholder="Buscar por nombre o código" value={filters.search} onChange={event => onChange({ ...filters, search: event.target.value, indicatorId: '' })} className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-400" /></label><select aria-label="Filtrar portafolio por objetivo" value={filters.objectiveId} onChange={event => onChange({ ...filters, objectiveId: event.target.value, indicatorId: '' })} className="max-w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-600"><option value="">Todos los objetivos</option>{objectives.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select aria-label="Filtrar portafolio por responsable" value={filters.responsibleId} onChange={event => onChange({ ...filters, responsibleId: event.target.value, indicatorId: '' })} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-600"><option value="">Todos los responsables</option>{[...new Set(indicators.map(item => item.ownerId).filter(Boolean))].map(id => <option key={id} value={id}>{personName(id, users)}</option>)}</select></div></>}
     {!list.length && <p className="rounded-xl bg-white border p-8 text-center text-slate-500">No hay indicadores que coincidan con estos filtros.</p>}
-    {indicator ? <div className="space-y-6">
+    {indicator ? <div className="space-y-6"><button onClick={() => onChange({ ...filters, indicatorId: '' })} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-700"><ArrowLeft className="h-4 w-4" />Volver al portafolio</button>
       <section className="bg-white border border-slate-200 rounded-2xl p-6 grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6">
         <div><p className="text-sm text-slate-500">{objective?.code} · {objective?.name}</p><p className="text-xs font-semibold text-blue-700 mt-4">{indicator.code}</p><h2 className="text-2xl font-bold text-slate-900 mt-1">{indicator.name}</h2><p className="text-slate-500 mt-3 break-words">Fórmula: {indicator.formula || '—'}</p><p className="text-sm text-slate-500 mt-2">Frecuencia: {indicator.frequency}</p></div>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center"><p className="text-sm text-slate-500">Última medición · {latest?.period || 'Sin reporte'}</p><p className="text-4xl font-bold text-slate-900 mt-3">{latest?.result ?? '—'} <span className="text-xl">{displayUnit(indicator.unit)}</span></p><p className={`text-sm font-semibold mt-2 ${['En meta','Sin datos'].includes(latest?.status) ? 'text-green-700' : 'text-amber-700'}`}>{latest?.status || 'Sin reporte'}</p><p className="text-xs text-slate-500 mt-3">Meta actual: {indicator.comparator} {indicator.target} {displayUnit(indicator.unit)}</p></div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center"><p className="text-sm text-slate-500">Última medición · {latest?.period || 'Sin reporte'}</p><p className="text-4xl font-bold text-slate-900 mt-3">{latest?.status === 'Sin datos' ? 'Sin datos' : latest?.result ?? '—'} <span className="text-xl">{displayUnit(indicator.unit)}</span></p><p className={`text-sm font-semibold mt-2 ${['En meta','Sin datos'].includes(latest?.status) ? 'text-green-700' : 'text-amber-700'}`}>{latest?.status || 'Sin reporte'}</p><p className="text-xs text-slate-500 mt-3">Meta actual: {indicator.comparator} {indicator.target} {displayUnit(indicator.unit)}</p></div>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-6"><h3 className="font-semibold text-slate-900 mb-4">Mediciones del indicador</h3><MeasurementChart indicator={indicator} reports={rows} /></section>
       <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden"><h3 className="p-5 border-b font-semibold">Historial de mediciones</h3><div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-4">Periodo</th><th className="p-4">Resultado</th><th className="p-4">Estado</th></tr></thead><tbody>{rows.map(row => <tr key={row.id} className="border-t"><td className="p-4">{row.period}</td><td className="p-4 font-medium">{row.result == null ? 'Sin datos' : row.result + ' ' + displayUnit(indicator.unit)}</td><td className="p-4">{row.status}</td></tr>)}{!rows.length && <tr><td colSpan="3" className="p-8 text-center text-slate-500">Sin mediciones.</td></tr>}</tbody></table></div></section>
-    </div> : list.length > 0 && <p className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500">Selecciona un indicador desde el embudo superior para ver su ficha, gráfica e historial.</p>}
+    </div> : list.length > 0 && <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_290px]"><div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">{portfolio.map(row => <IndicatorPortfolioCard key={row.indicator.id} row={row} objective={objectives.find(item => item.id === row.indicator.objectiveId)} users={users} onSelect={select} />)}</div><AttentionPanel rows={portfolio} objectives={objectives} onSelect={select} /></div>}
   </div>;
 }

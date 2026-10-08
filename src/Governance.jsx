@@ -2,6 +2,7 @@ import { displayUnit } from './lib/units';
 import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { indicatorAccess } from './lib/responsibility';
+import AssignedIndicatorPortfolio from './IndicatorPortfolio';
 
 const box = 'bg-white border border-slate-200 rounded-lg p-3 space-y-2';
 const field = 'border border-slate-300 rounded-lg p-2 text-sm w-full';
@@ -10,9 +11,9 @@ const compactDetails = 'bg-white border border-slate-200 rounded-lg px-3 py-2 sh
 
 export { default as ComparisonCharts } from './ComparisonLines';
 
-export function AssignedIndicators({ indicators, objectives, ownIds, isSuperAdmin = false, onSelect }) {
+export function AssignedIndicators({ indicators, objectives, reports = [], users = [], ownIds, isSuperAdmin = false, onSelect }) {
   const assigned = indicators.filter(i => indicatorAccess(i, objectives.find(o => o.id === i.objectiveId), ownIds, isSuperAdmin).canReport);
-  return <div className="space-y-5"><h1 className="text-2xl font-bold">Indicadores asignados</h1><p className="text-slate-500">Reporta tus indicadores o delega el reporte. Las modificaciones requieren aprobación de GCG.</p>{assigned.map(i => <button key={i.id} className={`${box} w-full text-left hover:border-blue-400`} onClick={() => onSelect(i)}><h2 className="font-semibold">{i.name}</h2><p className="text-sm">Meta: {i.comparator} {i.target} {displayUnit(i.unit)} · {i.status}</p></button>)}{!assigned.length && <p>No tienes indicadores asignados.</p>}</div>;
+  return <AssignedIndicatorPortfolio indicators={assigned} objectives={objectives} reports={reports} users={users} onSelect={onSelect} />;
 }
 
 export function BioIndicators({ objectives, indicators, reports }) {
