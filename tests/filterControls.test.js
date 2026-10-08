@@ -20,9 +20,10 @@ test('requested controls retain search, supplemental reporter and funnel filters
   assert.ok(!governance.includes('aria-label="Medición"'));
   assert.ok(!governance.includes('Reportar personalmente'));
   assert.ok(governance.includes('if (!delegate) return;'));
-  for (const file of ['MeasurementChart.jsx', 'ComparisonLines.jsx', 'BioIndicatorsView.jsx']) {
+  for (const file of ['MeasurementChart.jsx', 'ComparisonLines.jsx']) {
     assert.ok(readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8').includes('<FilterPanel'));
   }
+  assert.ok(readFileSync(new URL('../src/BioIndicatorsView.jsx', import.meta.url), 'utf8').includes('IndicatorFilterMenu'));
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
   assert.ok(!app.includes('Año del valor ponderado'));
   assert.ok(!app.includes('{weighted.label}'));

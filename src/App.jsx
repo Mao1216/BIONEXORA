@@ -14,7 +14,7 @@ import ChangeRequests from './ChangeRequestsView';
 import MeasurementChart from './MeasurementChart';
 import { reportedProgress, weightedMeasurementValue } from './lib/indicatorViews';
 import { activeObjectives } from './lib/objectiveViews';
-import BioIndicatorsView from './BioIndicatorsView';
+import BioIndicatorsView, { IndicatorFilterMenu } from './BioIndicatorsView';
 import ObjectiveProgressList from './ObjectiveProgressList';
 import useCorrectiveWorkflow from './useCorrectiveWorkflow';
 import { AnalysisHistoryButton, ActionsHistoryButton } from './CorrectiveWorkflow';
@@ -178,6 +178,7 @@ export default function App() {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
   const [selectedObjectiveTab, setSelectedObjectiveTab] = useState('summary');
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
+  const [indicatorFilters, setIndicatorFilters] = useState({ search: '', objectiveId: '', responsibleId: '', indicatorId: '' });
   const [selectedActionId, setSelectedActionId] = useState(null);
   const [portfolioFilter, setPortfolioFilter] = useState(null);
   const [generalObjectiveFilter, setGeneralObjectiveFilter] = useState('Todos');
@@ -1106,14 +1107,15 @@ export default function App() {
         </div>
       </aside>
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
-        <header className="h-16 min-h-16 shrink-0 bg-white border-b border-slate-200 flex items-center px-4 md:px-6 sticky top-0 z-50 isolate overflow-hidden shadow-sm gap-3">
+        <header className="h-16 min-h-16 shrink-0 bg-white border-b border-slate-200 flex items-center px-4 md:px-6 sticky top-0 z-50 isolate overflow-visible shadow-sm gap-3">
            {navHistory.length > 1 && <button onClick={goBack} className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900" aria-label="Retroceder"><ArrowLeft className="w-4 h-4" /> <span>Atrás</span></button>}
+           {currentView === 'bio-indicators' && <IndicatorFilterMenu objectives={objectives} indicators={indicators} users={availableUsers} filters={indicatorFilters} onChange={setIndicatorFilters} />}
 
         </header>
         <div className="p-6 md:p-8 flex-1 relative z-0">
           {dataError && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3"><span>{dataError}</span><button onClick={() => setDataError('')} className="font-semibold shrink-0">Cerrar</button></div>}
           {currentView === 'dashboard' && <><MonitorView />{isGcg && <ComparisonCharts indicators={indicators} reports={reports} />}</>}
-          {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} users={availableUsers} />}
+          {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} users={availableUsers} filters={indicatorFilters} />}
           {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'objectives' && <ObjectivesView />}
           {currentView === 'new-objective' && <ObjectiveFormView />}
