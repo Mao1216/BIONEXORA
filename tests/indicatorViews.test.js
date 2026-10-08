@@ -23,6 +23,15 @@ test('chart sorts measurement periods, preserves zero, and never invents histori
   assert.equal(series[1].meta, 90);
 });
 
+test('la serie de metas conserva la meta histórica de cada medición', () => {
+  const series = measurementSeries([
+    { id: 3, period: 'Noviembre,2026', result: 19, measurement_target: 18 },
+    { id: 1, period: 'Agosto,2026', result: 21, measurement_target: 20 },
+    { id: 2, period: 'Setiembre,2026', result: 19, measurement_target: 20 },
+  ]);
+  assert.deepEqual(series.map(row => row.meta), [20, 20, 18]);
+});
+
 test('Y axis includes current and historical target values even outside measured results', () => {
   const ticks = measurementTicks([{ resultado: 23, meta: 75 }], 90);
   assert.ok(ticks.includes(75));
