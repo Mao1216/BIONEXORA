@@ -8,7 +8,7 @@ export function reportedProgress(indicators, reports) {
 
 export function measurementSeries(reports) {
   return [...reports].sort((a, b) => (parseReportPeriod(a.period)?.order || 0) - (parseReportPeriod(b.period)?.order || 0) || String(a.created_at || '').localeCompare(String(b.created_at || '')) || Number(a.id) - Number(b.id))
-    .map(report => ({ period: report.period.replace(',', ' '), resultado: report.result == null || report.status === 'Sin datos' ? null : Number(report.result), meta: report.measurement_target == null ? null : Number(report.measurement_target) }));
+    .map(report => ({ period: report.period.replace(',', ' '), resultado: report.result == null || report.status === 'Sin datos' ? null : Number(report.result), meta: report.measurement_target == null ? null : Number(report.measurement_target), comparator: report.measurement_comparator || null }));
 }
 
 export function measurementTicks(data, target) {

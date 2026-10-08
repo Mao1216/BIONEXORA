@@ -6,6 +6,18 @@ import { measurementSeries, measurementTicks } from './lib/indicatorViews';
 import { parseReportPeriod } from './lib/reporting';
 import { supabase } from './lib/supabase';
 
+const isInTarget = (value, target, comparator) => {
+  if (!Number.isFinite(Number(value)) || !Number.isFinite(Number(target))) return false;
+  switch (comparator) {
+    case '>': return Number(value) > Number(target);
+    case '>=': return Number(value) >= Number(target);
+    case '<': return Number(value) < Number(target);
+    case '<=': return Number(value) <= Number(target);
+    case '=': return Number(value) === Number(target);
+    default: return false;
+  }
+};
+
 export default function MeasurementChart({ indicator, reports }) {
   const years = useMemo(() => [...new Set(reports.map(report => parseReportPeriod(report.period)?.year).filter(Boolean))].sort((a, b) => b - a), [reports]);
   const [year, setYear] = useState('');
@@ -21,6 +33,11 @@ export default function MeasurementChart({ indicator, reports }) {
   });
   const data = measurementSeries(resolvedReports);
   const ticks = measurementTicks(data, indicator.target);
+  const ResultDot = ({ cx, cy, payload }) => {
+    if (!Number.isFinite(Number(payload?.resultado))) return null;
+    const color = isInTarget(payload.resultado, payload.meta ?? indicator.target, payload.comparator || indicator.comparator) ? '#16a34a' : '#dc2626';
+    return <circle cx={cx} cy={cy} r={5} fill={color} stroke="#ffffff" strokeWidth={2} />;
+  };
   if (!data.length) return <p className="py-16 text-center text-slate-500">Sin mediciones registradas.</p>;
   return <section aria-label={`Gráfica de medición de ${indicator.name}`}>
     <FilterPanel label="Filtros de tendencia"><div className="flex items-center gap-2 text-sm"><label htmlFor="measurement-year" className="font-medium text-slate-600">Año</label><select id="measurement-year" aria-label="Filtrar tendencia por año" className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={year} onChange={event => setYear(event.target.value)}><option value="">Todos los años</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></div></FilterPanel>
@@ -31,8 +48,8 @@ export default function MeasurementChart({ indicator, reports }) {
         <YAxis ticks={ticks} interval={0} domain={[ticks[0], ticks[ticks.length - 1]]} width={80} tickMargin={12} tick={{ fontSize: 11 }} />
         <Tooltip formatter={(value, name) => [`${value} ${displayUnit(indicator.unit)}`, name]} />
         <Legend />
-        <Line type="stepAfter" dataKey="meta" name="Meta de la medición" stroke="#16a34a" strokeDasharray="6 4" strokeWidth={2} dot={{ r: 2 }} connectNulls={false} />
-        <Line type="monotone" dataKey="resultado" name="Resultado" stroke="#1d4ed8" strokeWidth={3} dot={{ r: 4 }} />
+        <Line type="stepAfter" dataKey="meta" name="Meta de la medición" stroke="#111827" strokeDasharray="6 4" strokeWidth={2} dot={{ r: 2, fill: '#111827', stroke: '#111827' }} connectNulls={false} />
+        <Line type="monotone" dataKey="resultado" name="Resultado" stroke="#1d4ed8" strokeWidth={3} dot={<ResultDot />} />
       </LineChart>
     </ResponsiveContainer></div>
     {selectedReports.some(row => row.measurement_target == null) && <p className="text-xs text-slate-500">Para registros sin meta guardada se usa el historial de cambios disponible o la meta actual como referencia.</p>}
