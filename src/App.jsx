@@ -14,7 +14,8 @@ import { ComparisonCharts, IndicatorControls, AssignedIndicators } from './Gover
 import ChangeRequests, { IndicatorRequestFlyout } from './ChangeRequestsView';
 import MeasurementChart from './MeasurementChart';
 import { reportedProgress, weightedMeasurementValue } from './lib/indicatorViews';
-import { activeObjectives } from './lib/objectiveViews';
+import { activeObjectives, objectiveActivityStatus } from './lib/objectiveViews';
+import ObjectiveStatusControl from './ObjectiveStatusControl';
 import BioIndicatorsView, { IndicatorFilterMenu, IndicatorYearFilter } from './BioIndicatorsView';
 import ObjectiveProgressList from './ObjectiveProgressList';
 import StrategicActions from './StrategicActions';
@@ -178,6 +179,7 @@ export default function App() {
   
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(null);
   const [selectedObjectiveTab, setSelectedObjectiveTab] = useState('summary');
+  const [objectiveStatusFilter, setObjectiveStatusFilter] = useState('');
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(null);
   const [indicatorRequestFlyout, setIndicatorRequestFlyout] = useState(null);
   const [indicatorRequestForm, setIndicatorRequestForm] = useState(false);
@@ -438,11 +440,11 @@ export default function App() {
           {(isResponsibleManager || isGcg) ? <>
             <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Indicadores activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{scopedIndicators.length}</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><div className="border-t border-slate-100 pt-3 mt-3"><p className="text-sm text-slate-600">Avance de indicadores <span className="font-semibold text-slate-900">{indicatorProgress}%</span></p><p className="text-xs text-slate-500 mt-1">{indicatorReporting.reported} de {indicatorReporting.total} indicadores con medición</p><ProgressBar progress={indicatorProgress} status="En progreso" /></div></Card>
             <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Proyectos registrados</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{scopedProjects.length}</h3><FolderKanban className="w-6 h-6 text-blue-600" /></div><div className="border-t border-slate-100 pt-3 mt-3"><p className="text-sm text-slate-600">Avance de proyectos <span className="font-semibold text-slate-900">{projectsProgress}%</span></p><p className="text-xs text-slate-500 mt-1">Proyectos PMO</p><ProgressBar progress={projectsProgress} status="En progreso" /></div></Card>
-            <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">{isGcg ? 'Objetivos activos' : 'Número de acciones'}</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{isGcg ? activeObjectiveCount : scopedTasks.length}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">{isGcg ? 'Dentro de su periodo de vigencia' : 'Acciones estratégicas registradas'}</p></Card>
+            <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">{isGcg ? 'Objetivos activos' : 'Número de acciones'}</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{isGcg ? activeObjectiveCount : scopedTasks.length}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">{isGcg ? 'Según el estatus de los objetivos' : 'Acciones estratégicas registradas'}</p></Card>
             <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Indicadores sin medición</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{overdueIndicators}</h3><Clock className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-slate-500 mt-3">Pendientes de su primer reporte</p></Card>
           </> : <>
             <Card className="p-5 border-l-4 border-l-[#D71920]"><p className="text-sm font-medium text-slate-500">Avance estratégico</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{averageProgress}%</h3><Activity className="w-6 h-6 text-[#D71920]" /></div><p className="text-xs text-slate-500 mt-3">Promedio de objetivos activos</p></Card>
-            <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Objetivos activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{scopedObjectives.length}</h3><Target className="w-6 h-6 text-blue-600" /></div><p className="text-xs text-slate-500 mt-3">En seguimiento este periodo</p></Card>
+            <Card className="p-5 border-l-4 border-l-blue-600"><p className="text-sm font-medium text-slate-500">Objetivos activos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{activeObjectiveCount}</h3><Target className="w-6 h-6 text-blue-600" /></div><p className="text-xs text-slate-500 mt-3">En seguimiento este periodo</p></Card>
             {!isGeneralManager && <Card className="p-5 border-l-4 border-l-green-500"><p className="text-sm font-medium text-slate-500">Objetivos cumplidos</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{fulfilled}</h3><CheckCircle2 className="w-6 h-6 text-green-600" /></div><p className="text-xs text-green-700 mt-3">Resultados logrados</p></Card>}
             {!isGeneralManager && <Card className="p-5 border-l-4 border-l-amber-500"><p className="text-sm font-medium text-slate-500">Alertas de riesgo</p><div className="flex items-end justify-between mt-2"><h3 className="text-3xl font-bold text-slate-900">{atRisk}</h3><AlertCircle className="w-6 h-6 text-amber-500" /></div><p className="text-xs text-amber-700 mt-3">Requieren atención</p></Card>}
           </>}
@@ -459,6 +461,14 @@ export default function App() {
   };
 
   const ObjectivesView = () => {
+    const visibleObjectives = scopedObjectives.filter(objective => !objectiveStatusFilter || objectiveActivityStatus(objective) === objectiveStatusFilter);
+    const changeObjectiveStatus = async (objective, status) => {
+      if (!(isGcg || isResponsibleManager) || !['Activo', 'No activo'].includes(status) || !scopedObjectives.some(item => item.id === objective.id)) throw new Error('No puedes cambiar el estatus de este objetivo.');
+      const { data, error } = await supabase.from('objectives').update({ status, updated_at: new Date().toISOString() }).eq('id', objective.id).select().single();
+      if (error) throw new Error('No se pudo guardar el estatus. Inténtalo nuevamente.');
+      setObjectives(items => items.map(item => item.id === objective.id ? toObjective(data) : item));
+      notify(`Objetivo marcado como ${status.toLowerCase()}.`);
+    };
     const activeObs = activeObjectives(scopedObjectives).length;
     const registeredIndicators = scopedIndicators.length;
     const measuredIndicators = reportedProgress(scopedIndicators, scopedReports).reported;
@@ -466,14 +476,15 @@ export default function App() {
 
     return (
       <div className="space-y-8 fade-in">
-        <div className="flex justify-between items-end">
+        <div className="flex flex-wrap justify-between items-end gap-4">
           <div>
             <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">Buenos días, {session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'usuario'}</h1>
             <p className="text-slate-500 mt-1">Aquí está el resumen estratégico de tu organización.</p>
           </div>
+          <div className="flex flex-wrap items-end gap-3"><label className="text-xs font-medium text-slate-500">Estatus de objetivos<select aria-label="Filtrar objetivos por estatus" value={objectiveStatusFilter} onChange={event => setObjectiveStatusFilter(event.target.value)} className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"><option value="">Todos los objetivos</option><option value="Activo">Activos</option><option value="No activo">No activos</option></select></label>
           {isGcg && <Button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')}>
             <Plus className="w-4 h-4" /> Nuevo Objetivo
-          </Button>}
+          </Button>}</div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -525,18 +536,20 @@ export default function App() {
             </div>
             
             <div className="grid gap-4">
-              {scopedObjectives.map(obj => {
+              {!visibleObjectives.length && <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">No hay objetivos con este estatus.</p>}
+              {visibleObjectives.map(obj => {
                 const owner = availableUsers.find(u => u.id === obj.ownerId);
                 const objProjects = projects.filter(p => p.objectiveId === obj.id);
                 const objIndicators = indicators.filter(i => i.objectiveId === obj.id);
                 
                 return (
                   <Card key={obj.id} className="p-5 hover:-translate-y-0.5 transition-transform duration-200 group" onClick={() => navigateTo('objective-detail', obj.name, { objectiveId: obj.id })}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-blue-700 mb-1">{obj.code}</p><h3 className="text-lg font-semibold text-slate-900 group-hover:text-[#1D4ED8] transition-colors">{obj.name}</h3>
+                    <div className="flex justify-between items-start gap-3 mb-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-blue-700 mb-1">{obj.code}</p><h3 className="break-words text-lg font-semibold text-slate-900 group-hover:text-[#1D4ED8] transition-colors">{obj.name}</h3>
                         <p className="text-sm text-slate-500 mt-1 line-clamp-1">{obj.description}</p>
                       </div>
+                      <ObjectiveStatusControl objective={obj} canEdit={isGcg || isResponsibleManager} onChange={changeObjectiveStatus} />
                     </div>
                     
                     <div className="mb-4">
