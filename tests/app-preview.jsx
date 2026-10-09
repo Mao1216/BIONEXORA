@@ -20,6 +20,9 @@ if (new URLSearchParams(window.location.search).has('ranking')) {
   reports.push({ ...reports[3], id: 5, period: 'Marzo,2026', result: 97 });
 }
 const tables = { profiles: [{ email: session.user.email, role }], organization_people: [], objectives, indicators, indicator_reports: reports, projects: [{ id: 1, objective_id: 1, name: 'Proyecto de prueba', status: 'En progreso', progress: 30, owner_email: session.user.email }], strategic_actions: [], indicator_change_requests: [] };
+if (new URLSearchParams(window.location.search).has('strategic')) {
+  tables.strategic_actions = [{ id: 1, objective_id: 1, name: 'Capacitar al equipo en gestión documental', description: 'Tres sesiones prácticas para mejorar la visualización, carga y aprobación de documentos.', owner_email: session.user.email, due_date: '2026-10-31', status: 'En progreso' }, { id: 2, objective_id: 1, name: 'Implementar controles de calidad', description: 'Revisar los procedimientos y establecer controles preventivos.', owner_email: session.user.email, due_date: '2026-11-15', status: 'En progreso' }];
+}
 if (new URLSearchParams(window.location.search).has('corrective')) {
   indicators[0].status = 'Fuera de meta'; reports[3].result = 70; reports[3].status = 'Fuera de meta';
   tables.cause_analyses = [{ id: 1, code: 'ANC-26001', report_id: 4, cause: 'Calibración incorrecta del equipo.', five_whys: ['La medición perdió precisión.', 'El equipo trabajó fuera de parámetros.', 'No se realizó la revisión programada.', 'La alerta de mantenimiento no fue atendida.', 'Calibración incorrecta del equipo.'], deviation_description: 'El resultado del periodo está fuera de meta.', complementary_data: '', status: 'En proceso', created_at: '2026-10-07T12:00:00Z' }];
