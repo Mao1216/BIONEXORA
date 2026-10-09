@@ -45,14 +45,15 @@ export function weightedMeasurementValue(reports, year, referenceYear = new Date
 
 const normalizeSearch = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-export function filterIndicators(indicators, { search = '', objectiveId = '', responsibleId = '' }) {
+export function filterIndicators(indicators, { search = '', objectiveId = '', responsibleId = '', status = '' }) {
   const query = normalizeSearch(search);
   return indicators.filter(indicator => {
     const searchable = normalizeSearch(`${indicator.code || ''} ${indicator.name || ''}`);
     const responsible = indicator.ownerId || indicator.owner_email || indicator.reporter_email || '';
     return searchable.includes(query)
       && (!objectiveId || String(indicator.objectiveId) === String(objectiveId))
-      && (!responsibleId || String(responsible) === String(responsibleId));
+      && (!responsibleId || String(responsible) === String(responsibleId))
+      && (!status || indicator.status === (status === 'No reportado' ? 'Sin reporte' : status));
   });
 }
 

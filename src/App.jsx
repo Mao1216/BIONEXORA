@@ -19,7 +19,6 @@ import BioIndicatorsView, { IndicatorFilterMenu, IndicatorYearFilter } from './B
 import ObjectiveProgressList from './ObjectiveProgressList';
 import useCorrectiveWorkflow from './useCorrectiveWorkflow';
 import { AnalysisHistoryButton, ActionsHistoryButton } from './CorrectiveWorkflow';
-import { OutOfTargetView } from './UnifiedActions';
 import { attentionIndicators } from './lib/correctiveWorkflow';
 
 const ROLE_LABELS = {
@@ -194,14 +193,13 @@ export default function App() {
   const [session, setSession] = useState(null);
   const corrective = useCorrectiveWorkflow(session?.user?.id);
   useEffect(() => {
-    if (['indicator-detail', 'out-of-target', 'objectives'].includes(currentView)) corrective.reload();
+    if (['indicator-detail', 'objectives', 'bio-indicators'].includes(currentView)) corrective.reload();
   }, [currentView, corrective.reload]);
   const [assignedRole, setAssignedRole] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [dataError, setDataError] = useState('');
   const [notification, setNotification] = useState(null);
-  const [visualizationsOpen, setVisualizationsOpen] = useState(false);
   const notify = (message, type = 'success') => {
     setNotification({ message, type, id: Date.now() });
     window.setTimeout(() => setNotification(current => current?.message === message ? null : current), 3800);
@@ -950,7 +948,6 @@ export default function App() {
     if (!ind) return null;
     const indReports = sortReportsByPeriod(reports.filter(r => r.indicatorId === ind.id));
     const latestReport = indReports[indReports.length - 1];
-    const readOnlyDeviation = isGcg && navHistory.at(-2)?.id === 'out-of-target';
     const reportYears = [...new Set(indReports.map(report => reportPeriodTime(report) ? String(new Date(reportPeriodTime(report)).getUTCFullYear()) : '').filter(Boolean))].sort((a, b) => Number(b) - Number(a));
     const activeWeightedYear = reportYears[0] || '';
     const weighted = weightedMeasurementValue(indReports, activeWeightedYear);
@@ -978,8 +975,8 @@ export default function App() {
           </div>
           <div className="md:col-span-2">
             <div className="mb-4 flex flex-wrap justify-end gap-2">
-              {!isGcg && canReport && <button type="button" onClick={() => setIndicatorRequestForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"><FilePenLine className="h-4 w-4" />Solicitar modificación</button>}
-              <button type="button" onClick={() => setIndicatorRequestFlyout('pending')} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"><Clock className="h-4 w-4 text-amber-600" />En revisión</button>
+              {(isGcg || canReport) && <button type="button" onClick={() => setIndicatorRequestForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"><FilePenLine className="h-4 w-4" />{isGcg ? 'Realizar modificación' : 'Solicitar modificación'}</button>}
+              {!isGcg && <button type="button" onClick={() => setIndicatorRequestFlyout('pending')} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"><Clock className="h-4 w-4 text-amber-600" />En revisión</button>}
               <button type="button" onClick={() => setIndicatorRequestFlyout('history')} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"><History className="h-4 w-4 text-slate-500" />Historial</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1029,9 +1026,8 @@ export default function App() {
             </table>
           </div>
         </Card>
-        {!readOnlyDeviation && (isGcg || canReport) && <section id="indicator-actions" aria-label="Acciones del indicador" className="border-t border-slate-200 pt-4"><IndicatorControls indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} /></section>}
-        {indicatorRequestFlyout && <IndicatorRequestFlyout indicatorId={ind.id} indicators={indicators} users={organizationPeople} reports={reports} history={indicatorRequestFlyout === 'history'} onClose={() => setIndicatorRequestFlyout(null)} onViewHistory={() => { setIndicatorRequestFlyout(null); navigateTo('indicator-request-history', 'Historial de solicitudes', { indicatorId: ind.id }); }} />}
-        {indicatorRequestForm && createPortal(<div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[1px]" role="dialog" aria-modal="true" aria-label="Solicitar modificación"><div className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><header className="flex items-center justify-between border-b border-slate-200 px-6 py-5"><div><p className="text-xs font-semibold text-blue-700">{ind.code}</p><h2 className="mt-1 text-xl font-bold text-slate-900">Solicitar modificación</h2></div><button autoFocus onClick={() => setIndicatorRequestForm(false)} aria-label="Cerrar formulario" className="rounded-lg px-3 py-1 text-2xl text-slate-500 hover:bg-slate-100">×</button></header><div className="p-6"><p className="mb-5 text-sm text-slate-500">{ind.name}</p><IndicatorControls requestOnly indicator={ind} reports={indReports} isGcg={false} canManage={false} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={message => { notify(message); setIndicatorRequestForm(false); }} /></div></div></div>, document.body)}
+        {indicatorRequestFlyout && <IndicatorRequestFlyout directHistory={isGcg} indicatorId={ind.id} indicators={indicators} users={organizationPeople} reports={reports} history={indicatorRequestFlyout === 'history'} onClose={() => setIndicatorRequestFlyout(null)} onViewHistory={isGcg ? null : () => { setIndicatorRequestFlyout(null); navigateTo('indicator-request-history', 'Historial de solicitudes', { indicatorId: ind.id }); }} />}
+        {indicatorRequestForm && createPortal(<div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[1px]" role="dialog" aria-modal="true" aria-label={isGcg ? 'Realizar modificación' : 'Solicitar modificación'}><div className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><header className="flex items-center justify-between border-b border-slate-200 px-6 py-5"><div><p className="text-xs font-semibold text-blue-700">{ind.code}</p><h2 className="mt-1 text-xl font-bold text-slate-900">{isGcg ? 'Realizar modificación' : 'Solicitar modificación'}</h2></div><button autoFocus onClick={() => setIndicatorRequestForm(false)} aria-label="Cerrar formulario" className="rounded-lg px-3 py-1 text-2xl text-slate-500 hover:bg-slate-100">×</button></header><div className="p-6"><p className="mb-5 text-sm text-slate-500">{ind.name}</p><IndicatorControls requestOnly indicator={ind} reports={indReports} isGcg={isGcg} canManage={canManage} users={availableUsers} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={message => { notify(message); setIndicatorRequestForm(false); }} /></div></div></div>, document.body)}
       </div>
     );
   };
@@ -1115,14 +1111,13 @@ export default function App() {
         </div>
         <div className="flex-1 overflow-y-auto py-4">
           <nav className="px-3 space-y-1">
-            <button onClick={() => setVisualizationsOpen(open => !open)} aria-expanded={visualizationsOpen} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white"><span>Visualizaciones</span><ChevronRight className={`w-4 h-4 transition-transform ${visualizationsOpen ? 'rotate-90' : ''}`} /></button>
-            {visualizationsOpen && <div className="ml-3 pl-3 border-l border-slate-700 space-y-1"><button onClick={() => navigateTo('bio-indicators', 'Indicadores')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'bio-indicators' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Indicadores</button>{!isGcg && <button onClick={() => navigateTo('change-requests', 'Solicitudes de modificación')} className={`w-full text-left px-3 py-2 text-sm rounded-lg ${currentView === 'change-requests' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>Solicitudes de modificación</button>}</div>}
-            <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor</button>
+            <div className="pt-2 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Reportería</p></div>
+            <button onClick={() => navigateTo('dashboard', 'Monitor estratégico')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5" /> Monitor estratégico</button>
+            <button onClick={() => navigateTo('bio-indicators', 'Indicadores general')} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium ${currentView === 'bio-indicators' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}><BarChart3 className="w-5 h-5" />Indicadores general</button>{!isGcg && <button onClick={() => navigateTo('change-requests', 'Solicitudes de modificación')} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium ${currentView === 'change-requests' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800 hover:text-white'}`}><FilePenLine className="w-5 h-5" />Solicitudes de modificación</button>}
             <div className="pt-4 pb-1"><p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Gestión Estratégica</p></div>
             <button onClick={() => navigateTo(isGeneralManager ? 'new-objective' : 'objectives', isGeneralManager ? 'Crear objetivo' : 'Objetivos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${(currentView.includes('objective') && currentView !== 'dashboard') ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><Target className="w-5 h-5" /> {isGeneralManager ? 'Crear objetivo' : 'Objetivos'}</button>
             {isResponsibleManager && <button onClick={() => navigateTo('indicator-status', 'Estatus IND')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'indicator-status' || currentView === 'edit-indicator' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><BarChart3 className="w-5 h-5" /> Estatus IND</button>}
             {isGcg && <button onClick={() => navigateTo('gcg-review', 'Solicitudes')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'gcg-review' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Solicitudes</button>}
-            {isGcg && <button onClick={() => { corrective.reload(); navigateTo('out-of-target', 'Fuera de meta'); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${currentView === 'out-of-target' ? 'bg-[#1e293b] text-white' : 'hover:bg-slate-800 hover:text-white'}`}><CheckCircle2 className="w-5 h-5" /> Fuera de meta</button>}
           </nav>
         </div>
         <div className="p-4 border-t border-slate-800">
@@ -1132,13 +1127,13 @@ export default function App() {
       <main className="app-main min-w-0 flex-1 flex flex-col min-h-screen">
         <header className="h-14 min-h-14 shrink-0 bg-white border-b border-slate-200 flex items-center px-4 md:px-5 sticky top-0 z-50 isolate overflow-visible shadow-sm gap-3">
            {(navHistory.length > 1 || (currentView === 'bio-indicators' && indicatorFilters.indicatorId)) && <button onClick={goBack} className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900" aria-label="Retroceder"><ArrowLeft className="w-4 h-4" /> <span>Atrás</span></button>}
-           {currentView === 'bio-indicators' && (indicatorFilters.indicatorId ? <IndicatorYearFilter reports={reports.filter(report => String(report.indicatorId) === String(indicatorFilters.indicatorId))} year={bioIndicatorYear} onChange={setBioIndicatorYear} /> : <IndicatorFilterMenu objectives={objectives} indicators={indicators} users={availableUsers} filters={indicatorFilters} onChange={changeIndicatorFilters} />)}
+           {currentView === 'bio-indicators' && (indicatorFilters.indicatorId ? <IndicatorYearFilter reports={reports.filter(report => String(report.indicatorId) === String(indicatorFilters.indicatorId))} year={bioIndicatorYear} onChange={setBioIndicatorYear} /> : <IndicatorFilterMenu reports={reports} isGcg={isGcg} objectives={objectives} indicators={indicators} users={availableUsers} filters={indicatorFilters} onChange={changeIndicatorFilters} />)}
 
         </header>
         <div className="app-content p-4 md:p-6 flex-1 relative z-0">
           {dataError && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3"><span>{dataError}</span><button onClick={() => setDataError('')} className="font-semibold shrink-0">Cerrar</button></div>}
           {currentView === 'dashboard' && <><MonitorView />{isGcg && <ComparisonCharts indicators={indicators} reports={reports} />}</>}
-          {currentView === 'bio-indicators' && <BioIndicatorsView objectives={objectives} indicators={indicators} reports={reports} users={availableUsers} filters={indicatorFilters} onChange={changeIndicatorFilters} year={bioIndicatorYear} />}
+          {currentView === 'bio-indicators' && <BioIndicatorsView workflow={corrective} objectives={objectives} indicators={indicators} reports={reports} users={availableUsers} filters={indicatorFilters} onChange={changeIndicatorFilters} year={bioIndicatorYear} isGcg={isGcg} session={session} onReload={loadOperationalData} onError={setDataError} onNotify={notify} />}
           {currentView === 'change-requests' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} />}
           {currentView === 'indicator-request-history' && <ChangeRequests isGcg={isGcg} indicators={indicators} users={organizationPeople} reports={reports} onReload={loadOperationalData} onError={setDataError} indicatorId={selectedIndicatorId} initialHistory onBack={goBack} />}
           {currentView === 'objectives' && <ObjectivesView />}
@@ -1151,7 +1146,6 @@ export default function App() {
           {currentView === 'edit-indicator' && <EditIndicatorView />}
           {currentView === 'edit-target' && <EditTargetView />}
           {currentView === 'gcg-review' && isGcg && <ChangeRequests isGcg indicators={indicators} users={organizationPeople} onReload={loadOperationalData} onError={setDataError} />}
-          {currentView === 'out-of-target' && isGcg && <OutOfTargetView workflow={corrective} indicators={indicators} objectives={objectives} reports={reports} onSelect={indicator => navigateTo("indicator-detail", indicator.name, { indicatorId: indicator.id })} />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'indicator-detail' && <IndicatorDetailView />}
           {currentView === 'report-indicator' && <ReportFormView />}
@@ -1159,11 +1153,10 @@ export default function App() {
       </main>
       {notification && <div role="status" className={`fixed right-5 top-5 z-[100] flex max-w-sm items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg fade-in ${notification.type === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-white text-slate-800'}`}><div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notification.type === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{notification.type === 'warning' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}</div><span>{notification.message}</span><button onClick={() => setNotification(null)} aria-label="Cerrar notificación" className="ml-1 text-slate-400 hover:text-slate-700">×</button></div>}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-3 z-50">
-        <button onClick={() => navigateTo('dashboard', 'Monitor')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#D71920]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Monitor</span></button>
+        <button onClick={() => navigateTo('dashboard', 'Monitor estratégico')} className={`flex flex-col items-center gap-1 ${currentView === 'dashboard' ? 'text-[#D71920]' : 'text-slate-500'}`}><LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium">Monitor</span></button>
         {isGeneralManager ? <button onClick={() => navigateTo('new-objective', 'Nuevo Objetivo')} className="flex flex-col items-center gap-1 text-[#1D4ED8]"><div className="bg-blue-50 p-2 rounded-full mb-[-10px] translate-y-[-10px] border shadow-sm"><Plus className="w-5 h-5" /></div><span className="text-[10px] font-medium">Objetivo</span></button> : <button onClick={() => navigateTo('objectives', 'Objetivos')} className="flex flex-col items-center gap-1 text-slate-500"><Target className="w-5 h-5" /><span className="text-[10px] font-medium">Objetivos</span></button>}
-        <button onClick={() => navigateTo('bio-indicators', 'Indicadores')} className="flex flex-col items-center gap-1 text-slate-500"><BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium">Indicadores</span></button>
+        <button onClick={() => navigateTo('bio-indicators', 'Indicadores general')} className="flex flex-col items-center gap-1 text-slate-500"><BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium">Indicadores general</span></button>
         <button onClick={() => navigateTo(isGcg ? 'gcg-review' : 'change-requests', isGcg ? 'Revisión GCG' : 'Solicitudes')} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">{isGcg ? 'Revisión GCG' : 'Solicitudes'}</span></button>
-        {isGcg && <button onClick={() => { corrective.reload(); navigateTo('out-of-target', 'Fuera de meta'); }} className="flex flex-col items-center gap-1 text-slate-500"><CheckCircle2 className="w-5 h-5" /><span className="text-[10px] font-medium">Fuera de meta</span></button>}
       </div>
     </div>
   );
