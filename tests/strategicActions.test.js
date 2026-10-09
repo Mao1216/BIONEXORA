@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+test('action status is persisted and controls prevent duplicate saves and expose failures', () => {
+  const cards = readFileSync(new URL('../src/StrategicActions.jsx', import.meta.url), 'utf8');
+  assert.ok(cards.includes("['Concluido', 'Cerrado', 'En progreso']"));
+  assert.ok(cards.includes('busyId != null'));
+  assert.ok(cards.includes('await onStatusChange(action, status)'));
+  assert.ok(cards.includes('role="alert"'));
+  assert.ok(app.includes("update({ status, updated_at: new Date().toISOString() }).eq('id', action.id)"));
+});
 test('GCG can open objective projects, create actions, edit actions and link projects', () => {
   assert.ok(app.includes("label: 'Proyectos', icon: FolderKanban, visible: isResponsibleManager || isGcg"));
   assert.ok(app.includes("navigateTo('link-project', 'Vincular proyecto'"));

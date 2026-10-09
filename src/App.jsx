@@ -766,7 +766,7 @@ export default function App() {
                   })}
                 </div>
               )}
-              <StrategicActions actions={objActions} users={availableUsers} canEdit={isResponsibleManager || isGcg} onEdit={action => navigateTo('edit-action', 'Editar acción estratégica', { objectiveId: obj.id, actionId: action.id, objectiveTab: 'projects' })} />
+              <StrategicActions actions={objActions} users={availableUsers} onStatusChange={async (action, status) => { if (!(isResponsibleManager || isGcg) || !['Concluido', 'Cerrado', 'En progreso'].includes(status)) throw new Error('No se puede cambiar el estatus.'); const { data, error } = await supabase.from('strategic_actions').update({ status, updated_at: new Date().toISOString() }).eq('id', action.id).select().single(); if (error) throw new Error('No se pudo guardar el estatus. Inténtalo nuevamente.'); setTasks(items => items.map(item => item.id === action.id ? toAction(data) : item)); notify(`Acción marcada como ${status.toLowerCase()}.`); }} canEdit={isResponsibleManager || isGcg} onEdit={action => navigateTo('edit-action', 'Editar acción estratégica', { objectiveId: obj.id, actionId: action.id, objectiveTab: 'projects' })} />
             </div>
           )}
 
