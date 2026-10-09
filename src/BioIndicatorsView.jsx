@@ -1,6 +1,6 @@
 import { displayUnit } from './lib/units';
 import React from 'react';
-import { Filter, Search } from 'lucide-react';
+import { Filter } from 'lucide-react';
 import { AttentionPanel, IndicatorPortfolioCard, PortfolioSummary, PortfolioStatus } from './IndicatorPortfolio';
 import { portfolioRows } from './lib/indicatorPortfolio';
 import MeasurementChart from './MeasurementChart';
@@ -56,7 +56,7 @@ export default function BioIndicatorsView({ objectives, indicators, reports, use
   const select = item => onChange({ ...filters, indicatorId: String(item.id) });
   return <div className="fade-in space-y-6">
     <header><p className="text-xs font-medium text-slate-500">Reportería / Indicadores general</p><h1 className="text-3xl font-bold tracking-tight text-slate-900 mt-2">Indicadores general</h1><p className="text-sm text-slate-500 mt-2">Seguimiento integral del portafolio</p></header>
-    {!indicator && <><PortfolioSummary rows={portfolio} /><div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><label className="relative min-w-48 flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input aria-label="Buscar en el portafolio" placeholder="Buscar por nombre o código" value={filters.search} onChange={event => onChange({ ...filters, search: event.target.value, indicatorId: '' })} className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-400" /></label><select aria-label="Filtrar portafolio por objetivo" value={filters.objectiveId} onChange={event => onChange({ ...filters, objectiveId: event.target.value, indicatorId: '' })} className="max-w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-600"><option value="">Todos los objetivos</option>{objectives.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select aria-label="Filtrar portafolio por responsable" value={filters.responsibleId} onChange={event => onChange({ ...filters, responsibleId: event.target.value, indicatorId: '' })} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-600"><option value="">Todos los responsables</option>{[...new Set(indicators.map(item => item.ownerId).filter(Boolean))].map(id => <option key={id} value={id}>{personName(id, users)}</option>)}</select></div></>}
+    {!indicator && <PortfolioSummary rows={portfolio} />}
     {!list.length && <p className="rounded-xl bg-white border p-8 text-center text-slate-500">No hay indicadores que coincidan con estos filtros.</p>}
     {indicator ? <div className="space-y-6">
       {isGcg && <IndicatorManagement indicator={indicator} reports={reports.filter(report => report.indicatorId === indicator.id)} users={users} session={session} onReload={onReload} onError={onError} onNotify={onNotify} />}
