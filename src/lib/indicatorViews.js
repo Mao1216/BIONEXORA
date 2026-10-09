@@ -45,6 +45,22 @@ export function weightedMeasurementValue(reports, year, referenceYear = new Date
 
 const normalizeSearch = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
+export function weightedIndicatorSummary(indicator, reports, year = '') {
+  const activeYear = String(year || reports.map(report => parseReportPeriod(report.period)?.year).filter(Boolean).sort((a, b) => Number(b) - Number(a))[0] || '');
+  const weighted = weightedMeasurementValue(reports, activeYear);
+  const value = weighted.value;
+  const target = Number(indicator?.target);
+  const comparisons = {
+    '>': value > target, '>=': value >= target, '=': value === target,
+    '<=': value <= target, '<': value < target,
+  };
+  return {
+    ...weighted, year: activeYear,
+    display: value === null ? '—' : Number(value.toFixed(2)),
+    status: value === null || !Number.isFinite(target) ? null : comparisons[indicator?.comparator] ? 'En meta' : 'Fuera de meta',
+  };
+}
+
 export function filterIndicators(indicators, { search = '', objectiveId = '', responsibleId = '', status = '' }) {
   const query = normalizeSearch(search);
   return indicators.filter(indicator => {

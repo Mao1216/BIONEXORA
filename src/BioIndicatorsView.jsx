@@ -4,7 +4,7 @@ import { Filter, Search } from 'lucide-react';
 import { AttentionPanel, IndicatorPortfolioCard, PortfolioSummary, PortfolioStatus } from './IndicatorPortfolio';
 import { portfolioRows } from './lib/indicatorPortfolio';
 import MeasurementChart from './MeasurementChart';
-import { filterIndicators } from './lib/indicatorViews';
+import { filterIndicators, weightedIndicatorSummary } from './lib/indicatorViews';
 import { parseReportPeriod } from './lib/reporting';
 import { personName } from './lib/personNames';
 import IndicatorManagement from './IndicatorManagement';
@@ -51,6 +51,7 @@ export default function BioIndicatorsView({ objectives, indicators, reports, use
   const objective = objectives.find(item => item.id === indicator?.objectiveId);
   const rows = reports.filter(report => report.indicatorId === indicator?.id && (!year || parseReportPeriod(report.period)?.year === year)).sort((a, b) => (parseReportPeriod(b.period)?.order || 0) - (parseReportPeriod(a.period)?.order || 0) || Number(b.id) - Number(a.id));
   const latest = rows[0];
+  const weighted = weightedIndicatorSummary(indicator, rows, year);
   const portfolio = portfolioRows(list, reports);
   const select = item => onChange({ ...filters, indicatorId: String(item.id) });
   return <div className="fade-in space-y-6">
@@ -59,9 +60,12 @@ export default function BioIndicatorsView({ objectives, indicators, reports, use
     {!list.length && <p className="rounded-xl bg-white border p-8 text-center text-slate-500">No hay indicadores que coincidan con estos filtros.</p>}
     {indicator ? <div className="space-y-6">
       {isGcg && <IndicatorManagement indicator={indicator} reports={reports.filter(report => report.indicatorId === indicator.id)} users={users} session={session} onReload={onReload} onError={onError} onNotify={onNotify} />}
-      <section className="bg-white border border-slate-200 rounded-2xl p-6 grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6">
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,480px)] gap-6">
         <div><p className="text-sm text-slate-500">{objective?.code} · {objective?.name}</p><p className="text-xs font-semibold text-blue-700 mt-4">{indicator.code}</p><h2 className="text-2xl font-bold text-slate-900 mt-1">{indicator.name}</h2><p className="text-slate-500 mt-3 break-words">Fórmula: {indicator.formula || '—'}</p><p className="text-sm text-slate-500 mt-2">Frecuencia: {indicator.frequency}</p></div>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center"><p className="text-sm text-slate-500">Última medición · {latest?.period || 'Sin reporte'}</p><p className="text-4xl font-bold text-slate-900 mt-3">{latest?.status === 'Sin datos' ? 'Sin datos' : latest?.result ?? '—'} <span className="text-xl">{displayUnit(indicator.unit)}</span></p><div className="mt-3 flex justify-center"><PortfolioStatus status={latest?.status || 'Sin reporte'} /></div><p className="text-xs text-slate-500 mt-3">Meta actual: {indicator.comparator} {indicator.target} {displayUnit(indicator.unit)}</p></div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center"><p className="text-sm text-slate-500">Última medición · {latest?.period || 'Sin reporte'}</p><p className="text-4xl font-bold text-slate-900 mt-3">{latest?.status === 'Sin datos' ? 'Sin datos' : latest?.result ?? '—'} <span className="text-xl">{displayUnit(indicator.unit)}</span></p><div className="mt-3 flex justify-center"><PortfolioStatus status={latest?.status || 'Sin reporte'} /></div><p className="text-xs text-slate-500 mt-3">Meta actual: {indicator.comparator} {indicator.target} {displayUnit(indicator.unit)}</p></div>
+          <div aria-label="Valor ponderado del indicador" className="rounded-xl border border-slate-200 border-t-4 border-t-blue-500 bg-white p-5 text-center shadow-sm"><p className="text-sm font-medium text-slate-500">Valor ponderado{weighted.year ? ` ${weighted.year}` : ''}</p><p className="mt-3 text-4xl font-bold text-slate-900">{weighted.display} <span className="text-xl font-normal text-slate-500">{weighted.value !== null ? displayUnit(indicator.unit) : ''}</span></p>{weighted.status && <div className="mt-3 flex justify-center"><PortfolioStatus status={weighted.status} /></div>}<p className="mt-3 text-xs text-slate-400">{weighted.count ? `${weighted.count} medición${weighted.count === 1 ? '' : 'es'}` : 'Sin mediciones con datos'}</p></div>
+        </div>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-6"><h3 className="font-semibold text-slate-900 mb-4">Mediciones del indicador</h3><MeasurementChart indicator={indicator} reports={rows} year={year} showYearFilter={false} /></section>
       <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden"><h3 className="p-5 border-b font-semibold">Historial de mediciones</h3><div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-4">Periodo</th><th className="p-4">Resultado</th><th className="p-4">Estado</th>{isGcg && workflow && <><th className="p-4">Análisis de causa</th><th className="p-4">Acciones</th></>}</tr></thead><tbody>{rows.map(row => <tr key={row.id} className="border-t"><td className="p-4">{row.period}</td><td className="p-4 font-medium">{row.result == null ? 'Sin datos' : row.result + ' ' + displayUnit(indicator.unit)}</td><td className="p-4"><PortfolioStatus status={row.status} /></td>{isGcg && workflow && <><td className="p-4"><AnalysisHistoryButton report={row} indicator={indicator} objective={objective} workflow={workflow} users={users} canManage={false} /></td><td className="p-4"><ActionsHistoryButton report={row} workflow={workflow} users={users} canManage={false} /></td></>}</tr>)}{!rows.length && <tr><td colSpan={isGcg && workflow ? 5 : 3} className="p-8 text-center text-slate-500">Sin mediciones.</td></tr>}</tbody></table></div></section>
