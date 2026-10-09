@@ -8,6 +8,7 @@ import { filterIndicators, weightedIndicatorSummary } from './lib/indicatorViews
 import { parseReportPeriod } from './lib/reporting';
 import { personName } from './lib/personNames';
 import IndicatorManagement from './IndicatorManagement';
+import SearchableIndicatorSelect from './SearchableIndicatorSelect';
 import { AnalysisHistoryButton, ActionsHistoryButton } from './CorrectiveWorkflow';
 
 const input = 'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm';
@@ -24,18 +25,17 @@ export function IndicatorFilterMenu({ objectives, indicators, reports = [], isGc
     onChange({ ...next, indicatorId: selectedStillMatches ? next.indicatorId : '' });
   };
   const change = key => event => apply({ ...filters, [key]: event.target.value });
-  const matches = filterIndicators(statusIndicators, filters);
+  const matches = filterIndicators(statusIndicators, { ...filters, search: '' });
   return <details className="relative ml-auto shrink-0">
     <summary aria-label="Filtros de indicadores" title="Filtros de indicadores" className="flex cursor-pointer list-none items-center rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900"><Filter className="h-5 w-5" /><span className="sr-only">Filtros de indicadores</span></summary>
     <div className="absolute right-0 top-full z-[60] mt-2 w-[min(92vw,48rem)] rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
       <div className="mb-3 flex items-center justify-between"><p className="text-sm font-semibold text-slate-800">Filtros de indicadores</p>{(filters.search || filters.objectiveId || filters.responsibleId || filters.status || filters.indicatorId) && <button type="button" className="text-sm font-medium text-blue-700" onClick={() => onChange({ search: '', objectiveId: '', responsibleId: '', indicatorId: '' })}>Limpiar</button>}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <label className="text-sm font-medium text-slate-700">Nombre o código<input className={input} placeholder="Ej.: productividad o IND-26001" value={filters.search} onChange={change('search')} /><span className="mt-1 block text-xs font-normal text-slate-500">{matches.length} indicador{matches.length === 1 ? '' : 'es'} encontrado{matches.length === 1 ? '' : 's'}</span></label>
+        <SearchableIndicatorSelect indicators={matches} value={filters.indicatorId} onChange={indicatorId => onChange({ ...filters, search: '', indicatorId })} />
         <label className="text-sm font-medium text-slate-700">Objetivo<select className={input} value={filters.objectiveId} onChange={change('objectiveId')}><option value="">Todos los objetivos</option>{objectives.map(item => <option key={item.id} value={item.id}>{item.code ? `${item.code} · ` : ''}{item.name}</option>)}</select></label>
         <label className="text-sm font-medium text-slate-700">Responsable<select className={input} value={filters.responsibleId} onChange={change('responsibleId')}><option value="">Todos los responsables</option>{responsibles.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       </div>
       {isGcg && <label className="mt-4 block text-sm font-medium text-slate-700">Estatus<select aria-label="Estatus de indicadores" className={input} value={filters.status || ''} onChange={change('status')}><option value="">Todos los estatus</option>{['Fuera de meta', 'No reportado', 'En meta', 'Sin datos'].map(status => <option key={status}>{status}</option>)}</select></label>}
-      <label className="mt-4 block text-sm font-medium text-slate-700">Indicador<select className={input} value={filters.indicatorId} onChange={change('indicatorId')}><option value="">Seleccionar indicador ({matches.length} disponibles)</option>{matches.map(item => <option key={item.id} value={item.id}>{item.code ? `${item.code} · ` : ''}{item.name}</option>)}</select></label>
     </div>
   </details>;
 }
