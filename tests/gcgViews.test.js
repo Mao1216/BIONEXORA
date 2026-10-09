@@ -36,10 +36,12 @@ test('without two specific years the comparison preserves chronological dates', 
 
 test('GCG navigation hides breadcrumb links and the duplicate objective shortcut, while preserving edited texts', () => {
   const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
-  const header = source.slice(source.indexOf('<header className="h-16'), source.indexOf('</header>', source.indexOf('<header className="h-16')));
+  const headerStart = source.indexOf('<header className="h-14');
+  const header = source.slice(headerStart, source.indexOf('</header>', headerStart));
   assert.match(header, /onClick=\{goBack\}/);
   assert.doesNotMatch(header, /navHistory.map/);
-  const sidebar = source.slice(source.indexOf('<nav className="px-4'), source.indexOf('</nav>', source.indexOf('<nav className="px-4')));
+  const sidebarStart = source.indexOf('<nav className="px-3');
+  const sidebar = source.slice(sidebarStart, source.indexOf('</nav>', sidebarStart));
   assert.doesNotMatch(sidebar, /navigateTo\('new-objective'/);
   assert.doesNotMatch(source, /<Badge status=\{obj.status\}/);
   assert.match(source, /indicadores con medición/);
