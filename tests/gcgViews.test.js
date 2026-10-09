@@ -49,9 +49,11 @@ test('GCG navigation hides breadcrumb links and the duplicate objective shortcut
   assert.match(source, /\{\(isResponsibleManager \|\| isGcg\) \? <>/);
   assert.match(source, /<ObjectiveProgressList objectives=\{scopedObjectives\}/);
   const progressList = readFileSync(new URL('../src/ObjectiveProgressList.jsx', import.meta.url), 'utf8');
-  assert.match(progressList, /title=\{objective.name\}/);
+  assert.doesNotMatch(progressList, /title=\{objective.name\}|role="tooltip"|cursor-help/);
+  assert.match(progressList, /<h3[^>]*>\{objective.name\}<\/h3>/);
   assert.match(progressList, /h-80 overflow-y-auto/);
-  assert.match(progressList, /h-20 grid/);
+  assert.match(progressList, /grid-cols-\[6rem_minmax\(0,1fr\)_3rem\]/);
+  assert.match(progressList, /border-b border-slate-100 py-4/);
 });
 
 test('objectives sort by progress without changing the original list, retaining all rows', () => {
