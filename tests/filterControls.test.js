@@ -20,7 +20,9 @@ test('requested controls retain search, supplemental reporter and funnel filters
   assert.ok(!governance.includes('aria-label="Medición"'));
   assert.ok(!governance.includes('Reportar personalmente'));
   assert.ok(governance.includes('if (!delegate) return;'));
-  assert.ok(readFileSync(new URL('../src/ComparisonLines.jsx', import.meta.url), 'utf8').includes('<FilterPanel'));
+  const comparison = readFileSync(new URL('../src/ComparisonLines.jsx', import.meta.url), 'utf8');
+  assert.ok(comparison.includes('role="group" aria-label="Filtros de comparativa"'));
+  assert.equal(comparison.includes('FilterPanel'), false);
   const chart = readFileSync(new URL('../src/MeasurementChart.jsx', import.meta.url), 'utf8');
   assert.ok(chart.includes('aria-label="Filtrar tendencia"'));
   assert.ok(chart.includes('Meta de la medición'));
