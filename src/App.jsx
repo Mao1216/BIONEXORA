@@ -534,11 +534,6 @@ export default function App() {
                   <Card key={obj.id} className="p-5 hover:-translate-y-0.5 transition-transform duration-200 group" onClick={() => navigateTo('objective-detail', obj.name, { objectiveId: obj.id })}>
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3"/> Meta: {obj.targetDate}
-                          </span>
-                        </div>
                         <p className="text-xs font-semibold text-blue-700 mb-1">{obj.code}</p><h3 className="text-lg font-semibold text-slate-900 group-hover:text-[#1D4ED8] transition-colors">{obj.name}</h3>
                         <p className="text-sm text-slate-500 mt-1 line-clamp-1">{obj.description}</p>
                       </div>
